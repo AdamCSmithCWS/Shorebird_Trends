@@ -1,29 +1,29 @@
-Species,Large flocks,Small Flocks,Notes 
-American Avocet,,1,
-Black-bellied Plover,1,2,"large flocks in coastal areas and some agricultural areas, smaller numbers at inland sites but tendency towards larger flocks overall."
-American Golden-Plover,,1,
-Semipalmated Plover,1,2,"small flocks sometimes, per Scott's suggestion"
-Piping Plover,,1,
-Killdeer,,1,
-Whimbrel,1,2,"small groups in Atlantic Canada, but larger groups (relative to other species) in Ontario."
-Hudsonian Godwit,,1,"large groups in James Bay, but outside OSS sampling frame?"
-Marbled Godwit,2,1,"large groups in James Bay, but outside OSS sampling frame?  Large groups also per Scott's suggestion"
-Ruddy Turnstone,1,,
-Red Knot,1,,
-Stilt Sandpiper,,1,
-Sanderling,1,,
-Dunlin,1,,
-Baird's Sandpiper,,1,
-Least Sandpiper,1,,
-White-rumped Sandpiper,1,,
-Buff-breasted Sandpiper,,1,
-Pectoral Sandpiper,,1,
-Semipalmated Sandpiper,1,,
-Short-billed Dowitcher,1,2,"large groups in ATL, smaller groups in ON and PAC"
-Long-billed Dowitcher,,1,
-Spotted Sandpiper,,1,
-Solitary Sandpiper,,1,
-Lesser Yellowlegs,1,2,"large groups in ATL, smaller groups in ON"
-Willet,1,,
-Greater Yellowlegs,,1,
-Wilson's Phalarope,1,,guess?
+Species,Large flocks,Small Flocks,two_seasons,regions_w_alt_season
+American Avocet,,1,TRUE,Texas Coastal
+Black-bellied Plover,1,2,TRUE,Southeast Coastal - Texas Coastal - Pacific and Intermountain
+American Golden-Plover,,1,FALSE,NA
+Semipalmated Plover,1,2,TRUE,Southeast Coastal - Texas Coastal
+Piping Plover,,1,TRUE,Southeast Coastal - Texas Coastal
+Killdeer,,1,FALSE,NA
+Whimbrel,1,2,FALSE,NA
+Hudsonian Godwit,,1,TRUE,East Inland - Ontario
+Marbled Godwit,2,1,TRUE,Southeast Coastal - Texas Coastal
+Ruddy Turnstone,1,,FALSE,NA
+Red Knot,1,,TRUE,Southeast Coastal - Texas Coastal
+Stilt Sandpiper,,1,TRUE,Southeast Coastal
+Sanderling,1,,TRUE,Southeast Coastal - Texas Coastal
+Dunlin,1,,FALSE,NA
+Baird's Sandpiper,,1,FALSE,NA
+Least Sandpiper,1,,TRUE,Southeast Coastal - Midcontinental
+White-rumped Sandpiper,1,,FALSE,NA
+Buff-breasted Sandpiper,,1,FALSE,NA
+Pectoral Sandpiper,,1,FALSE,NA
+Semipalmated Sandpiper,1,,FALSE,NA
+Short-billed Dowitcher,1,2,TRUE,Southeast Coastal - Texas Coastal
+Long-billed Dowitcher,,1,FALSE,NA
+Spotted Sandpiper,,1,FALSE,NA
+Solitary Sandpiper,,1,FALSE,NA
+Lesser Yellowlegs,1,2,TRUE,Southeast Coastal
+Willet,1,,TRUE,Southeast Coastal - Texas Coastal
+Greater Yellowlegs,,1,TRUE,Southeast Coastal - Midcontinental
+Wilson's Phalarope,1,,FALSE,NA
