@@ -3,7 +3,6 @@ library(tidyverse)
 library(sf)
 library(spdep)
 library(ggforce)
-library(tidybayes)
 
 
 # library(doParallel)
