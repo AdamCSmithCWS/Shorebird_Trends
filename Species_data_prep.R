@@ -457,7 +457,7 @@ if(two_seasons){
                     node2 = car_stan_dat$node2)
   
 
-  mod.file = "models/GAMYE_spatial_NB_shorebird_two_season.stan"
+  mod.file = "models/GAMYE_spatial_shorebird_NB_two_season.stan"
   prior = "gamma"
   noise_dist = "NB"
   

@@ -3,4 +3,7 @@
 .RData
 .Ruserdata
 **arch/
+output/
+**.exe
+
 
