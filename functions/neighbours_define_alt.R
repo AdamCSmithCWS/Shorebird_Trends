@@ -13,7 +13,7 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
                               voronoi = FALSE,
                               nn_fill = FALSE,
                               add_map = NULL,
-                              alt_strat = "strat"){
+                              strat_indicator = "strat"){
   
   require(spdep)
   require(sf)
@@ -44,7 +44,7 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
   # neighbourhood define ----------------------------------------------------
   
   real_strata_map <- real_strata_map %>% rename_with(.,
-                                                     ~ gsub(pattern = alt_strat, 
+                                                     ~ gsub(pattern = strat_indicator, 
                                                             replacement = "strat_lab",
                                                             .x, fixed = TRUE)) %>% 
     group_by(strat_lab) %>% 
@@ -104,7 +104,20 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
           message("Some nodes are isolated, setting Voronoi to TRUE")
           voronoi <- TRUE
         }
-    }#end fill orphaned neighbours
+    }else{ #end fill orphaned neighbours
+      nb_mat = spdep::nb2mat(nb_db, style = "B",
+                             zero.policy = TRUE) #binary adjacency matrix
+      
+      box <- st_as_sfc(st_bbox(real_strata_map))
+      
+      xb = range(st_coordinates(box)[,"X"])
+      yb = range(st_coordinates(box)[,"Y"])
+      
+      if(n.comp.nb(nb_db)$nc > 0){
+        message("Some nodes are isolated, setting Voronoi to TRUE")
+        voronoi <- TRUE
+      }
+    }
     }else{
       voronoi <- TRUE
     }
@@ -342,5 +355,10 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
   
   car_stan[["adj_matrix"]] <- nb_mat
   
-  return(car_stan)
+  return(list(N = car_stan$N,
+              N_edges = car_stan$N_edges,
+              node1 = car_stan$node1,
+              node2 = car_stan$node2,
+              adj_matrix = car_stan$adj_matrix,
+              map = ggp))
 } ### end of function
