@@ -58,7 +58,7 @@ parameters {
   real<lower=0> sdyear;    // sd of year effects
   real<lower=0> sdseason;    // sd of year effects
   real<lower=0> sdyear_gam;    // sd of GAM coefficients
-  real<lower=0> sdyear_gam_strat[nknots_year]; //sd of strata level gams for each knot
+  real<lower=0> sdyear_gam_strat; //sd of strata level gams for each knot
   real ALPHA1; // overall intercept
 }
 
@@ -81,7 +81,7 @@ transformed parameters {
   
  
     for(k in 1:nknots_year){
-    b[,k] = (sdyear_gam_strat[k] * b_raw[,k]) + B[k];
+    b[,k] = (sdyear_gam_strat * b_raw[,k]) + B[k];
   }
   
   
@@ -104,7 +104,7 @@ model {
   sdyear ~ normal(0,0.2); //prior on scale of annual fluctuations - 
   // above is informative so that 95% of the prior includes yearly fluctuations fall
   // between 33% decrease and a 50% increase
-  sdalpha ~ student_t(3,0,1); //prior on scale of site level variation
+  sdalpha ~ student_t(3,0,3); //prior on scale of site level variation
   sdyear_gam ~ student_t(3,0,1); //prior on sd of gam hyperparameters
   sdyear_gam_strat ~ gamma(2,4);//boundary avoiding informative prior 
  //nu ~ gamma(2,0.1); // prior on df for t-distribution of heavy tailed site-effects from https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
@@ -129,7 +129,6 @@ model {
 }
 
 generated quantities {
-  vector[nstrata] a;
   real<lower=0> N[nyears];
   real<lower=0> NSmooth[nyears];
   real<lower=0> n[nstrata,nyears];

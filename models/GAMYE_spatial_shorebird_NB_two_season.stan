@@ -66,7 +66,7 @@ parameters {
   real<lower=0> sdyear;    // sd of year effects
   real<lower=0> sdseason[2];    // sd of season effects
   real<lower=0> sdyear_gam;    // sd of GAM coefficients
-  real<lower=0> sdyear_gam_strat[nknots_year]; //sd of strata level gams for each knot
+  real<lower=0> sdyear_gam_strat; //sd of strata level gams for each knot
   real ALPHA1; // overall intercept
 }
 
@@ -96,7 +96,7 @@ transformed parameters {
  
  
     for(k in 1:nknots_year){
-    b[,k] = (sdyear_gam_strat[k] * b_raw[,k]) + B[k];
+    b[,k] = (sdyear_gam_strat * b_raw[,k]) + B[k];
   }
   
   
@@ -144,7 +144,7 @@ model {
 }
 
 generated quantities {
-  vector[nstrata] a;
+
   real<lower=0> N[nyears];
   real<lower=0> NSmooth[nyears];
   real<lower=0> n[nstrata,nyears];

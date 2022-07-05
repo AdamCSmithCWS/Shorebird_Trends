@@ -12,8 +12,9 @@ library(ggforce)
 load("data/allShorebirdPrismFallCounts.RData")
 
 #load spatial function to transform GeoBugs format to Stan
-source("functions/mungeCARdata4stan.R")
- 
+#source("functions/mungeCARdata4stan.R")
+source("functions/neighbours_define_alt.r")
+
 sp_groups <- read.csv("data/Species_list.csv")
 # removing Alaska, NWT, and Hawaii ----------------------------------------
 
@@ -238,104 +239,19 @@ for(j in 1:nstrata){
 
 # generate neighbourhoods -------------------------------------------------
 
-# Voronoi polygons from strata-centroids -----------------------------------
-# voronoi polygons ensures all strata have neighbours
-reg_bounds <- st_union(orig_ss_regions)
-reg_bounds_buf = st_buffer(reg_bounds,dist = 1000)#grid_spacing)
 
-centres = suppressWarnings(st_centroid(real_grid))
-#centres_buf <- st_buffer(centres, dist=100)
-coords = st_coordinates(centres)
-
-
-box <- st_as_sfc(st_bbox(centres))
-
-cun = st_union(centres)
-
-v <- try(st_cast(st_voronoi(cun, envelope = box)),silent = TRUE)
-
-# Adding random noise to hex centres to avoid geometry errors -------------
+neighbours = neighbours_define(real_strata_map = real_grid_regs,
+                               strat_link_fill = 10000,
+                               species = sp,
+                               alt_strat = "stratn",
+                               plot_dir = "FIgures/maps/",
+                               plot_file = "_strata_map",
+                               voronoi = TRUE)
 
 
-while(class(v)[1] == "try-error"){
- 
-  #tmp = st_geometry(centres)
-  centres = st_centroid(real_grid)
-  for(i in 1:nrow(centres)){
-    centres$geometry[[i]] <- centres$geometry[[i]] + st_point(rnorm(2,0,1))
-  }
-  #centres_buf <- st_buffer(centres, dist=100)
-  coords = st_coordinates(centres)
-  
-  
-  box <- st_as_sfc(st_bbox(centres))
-  
-  cun = st_union(centres)
-  
-  v <- try(st_cast(st_voronoi(cun, envelope = box)),silent = TRUE)
-  
-  
-  
-}
-
-vint = try(st_sf(st_cast(st_intersection(v,reg_bounds_buf),"POLYGON")),silent = TRUE)
-
-# Adding random noise to hex centres to avoid geometry errors -------------
-
-j = 0
-while(class(vint)[1] == "try-error" & j < 10){
-
-  #tmp = st_geometry(centres)
-  centres = st_centroid(real_grid)
-  for(i in 1:nrow(centres)){
-    centres$geometry[[i]] <- centres$geometry[[i]] + st_point(rnorm(2,0,1))
-  }
-  #centres_buf <- st_buffer(centres, dist=100)
-  coords = st_coordinates(centres)
-  
-  
-  box <- st_as_sfc(st_bbox(centres))
-  
-  cun = st_union(centres)
-  
-  v <- try(st_cast(st_voronoi(cun, envelope = box)),silent = TRUE)
-  
-  
-  reg_bounds_buf = st_buffer(reg_bounds_buf,dist = 100)
-  vint = try(st_sf(st_cast(st_intersection(v,reg_bounds_buf),"POLYGON")),silent = TRUE)
-  j = j+1
-  
-  }
-
-if(j == 10){stop(paste("Geometry ERRORS check vintj for",sp))}
-
-# tmp = ggplot()+
-#   geom_sf(data = cun)+
-#   geom_sf(data = v,alpha = 0.1)
-#   #geom_sf(data = centres)
-# print(tmp)
-
-vintj = st_join(vint,centres,join = st_contains)
-vintj = arrange(vintj,stratn)
-
-nb_db = poly2nb(vintj,row.names = vintj$stratn,queen = FALSE)
 
 
-cc = suppressWarnings(st_coordinates(st_centroid(vintj)))
-# suppresses this warning: st_centroid assumes attributes are constant over geometries of x
 
-ggp = ggplot(data = real_grid_regs)+
-  geom_sf(data = vintj,alpha = 0.3)+ 
-  geom_sf(aes(col = Region))+
-  geom_sf_text(aes(label = stratn),size = 3,alpha = 0.3)+
-  labs(title = sp)
-pdf(file = paste0("Figures/",sp,"strata_connections_",p_time_series,"_",minspan,"_",min_nyears,".pdf"))
-plot(nb_db,cc,col = "pink")
-text(labels = rownames(cc),cc ,pos = 2)
-print(ggp)
-dev.off()
-
-ggp_out[[sp]] <- ggp
 
 
 
@@ -351,13 +267,7 @@ mean_counbts_doy_out[[sp]] <- mean_counbts_doy
 
 
 
-nb_info = spdep::nb2WB(nb_db)
 
-
-
-### re-arrange GEOBUGS formated nb_info into appropriate format for Stan model
-car_stan_dat <- mungeCARdata4stan(adjBUGS = nb_info$adj,
-                                  numBUGS = nb_info$num)
 
 
 
@@ -452,9 +362,9 @@ if(two_seasons){
                     
                     #midyear = midyear,
                     
-                    N_edges = car_stan_dat$N_edges,
-                    node1 = car_stan_dat$node1,
-                    node2 = car_stan_dat$node2)
+                    N_edges = neighbours$N_edges,
+                    node1 = neighbours$node1,
+                    node2 = neighbours$node2)
   
 
   mod.file = "models/GAMYE_spatial_shorebird_NB_two_season.stan"
@@ -470,7 +380,7 @@ if(two_seasons){
                                sdnoise = 0.2,
                                sdalpha = 0.1,
                                sdyear_gam = 1,
-                               sdyear_gam_strat = runif(stan_data$nknots_year,0.1,0.2),
+                               sdyear_gam_strat = runif(1,0.5,1.5),#runif(stan_data$nknots_year,0.1,0.2),
                                sdseason = c(1,1),
                                sdyear = 0.1,
                                B_raw = rnorm(stan_data$nknots_year,0,0.1),
@@ -507,9 +417,9 @@ if(two_seasons){
                     
                     #midyear = midyear,
                     
-                    N_edges = car_stan_dat$N_edges,
-                    node1 = car_stan_dat$node1,
-                    node2 = car_stan_dat$node2)
+                    N_edges = neighbours$N_edges,
+                    node1 = neighbours$node1,
+                    node2 = neighbours$node2)
   
 
   mod.file = "models/GAMYE_spatial_shorebird_NB.stan"
@@ -523,7 +433,7 @@ if(two_seasons){
                                sdnoise = 0.2,
                                sdalpha = 0.1,
                                sdyear_gam = 1,
-                               sdyear_gam_strat = runif(stan_data$nknots_year,0.1,0.2),
+                               sdyear_gam_strat = runif(1,0.5,1.5),#runif(stan_data$nknots_year,0.1,0.2),
                                sdseason = 1,
                                sdyear = 0.1,
                                B_raw = rnorm(stan_data$nknots_year,0,0.1),
@@ -559,9 +469,7 @@ save(list = c("stan_data",
               "prior",
               "noise_dist",
               "init_def",
-              "vintj",
-              "nb_db",
-              "cc"),
+              "neighbours"),
      file = paste0("data/species_stan_data/",sp,"_stan_data.RData"))
 
 
