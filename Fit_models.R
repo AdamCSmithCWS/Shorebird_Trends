@@ -102,7 +102,7 @@ save(list = c("stanfit",
 
 }#end modeling loop
 
-
+stopCluster(cl = cluster)
 
 
 

@@ -119,7 +119,7 @@ model {
   sdyear ~ normal(0,0.2); //prior on scale of annual fluctuations - 
   // above is informative so that 95% of the prior includes yearly fluctuations fall
   // between 33% decrease and a 50% increase
-  sdalpha ~ student_t(3,0,1); //prior on scale of site level variation
+  sdalpha ~ student_t(3,0,3); //prior on scale of site level variation
   sdyear_gam ~ student_t(3,0,1); //prior on sd of gam hyperparameters
   sdyear_gam_strat ~ gamma(2,4);//boundary avoiding informative prior 
  //nu ~ gamma(2,0.1); // prior on df for t-distribution of heavy tailed site-effects from https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
@@ -129,10 +129,10 @@ model {
   B_season_raw2 ~ std_normal();//GAM parameters
 
   count ~ neg_binomial_2_log(E,phi); //vectorized count likelihood
-  alpha_raw ~ std_normal(); // fixed site-effects
+  alpha_raw ~ student_t(3,0,1); // fixed site-effects
   B_raw ~ std_normal();// prior on GAM hyperparameters
   year_effect_raw ~ std_normal(); //prior on ▲annual fluctuations
-  sum(year_effect_raw) ~ normal(0,0.0001*nyears);//sum to zero constraint on year-effects
+  sum(year_effect_raw) ~ normal(0,0.001*nyears);//sum to zero constraint on year-effects
   sum(alpha_raw) ~ normal(0,0.001*nsites);//sum to zero constraint on site-effects
 
   
