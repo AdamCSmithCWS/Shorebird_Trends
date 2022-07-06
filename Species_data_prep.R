@@ -97,6 +97,9 @@ sp_groups <- read.csv("data/Species_list.csv")
  
  
 
+# SPECIES LOOP ------------------------------------------------------------
+
+
 
  
 for(sp in sps){
@@ -241,14 +244,15 @@ for(j in 1:nstrata){
 
 
 neighbours = neighbours_define(real_strata_map = real_grid_regs,
+                               add_map = prov_state,
                                strat_link_fill = 10000,
                                species = sp,
-                               alt_strat = "stratn",
+                               strat_indicator = "stratn",
                                plot_dir = "FIgures/maps/",
                                plot_file = "_strata_map",
-                               voronoi = TRUE)
+                               voronoi = FALSE)
 
-
+ggp_out[[sp]] <- neighbours$map
 
 
 
@@ -468,8 +472,8 @@ save(list = c("stan_data",
               "mod.file",
               "prior",
               "noise_dist",
-              "init_def",
-              "neighbours"),
+              "neighbours",
+              "two_seasons"),
      file = paste0("data/species_stan_data/",sp,"_stan_data.RData"))
 
 
@@ -493,15 +497,20 @@ save(list = c("stan_data",
  }
  dev.off()
  
- pdf(file = paste0("Figures/","ALL_Strata_",grid_spacing/1000,".pdf"))
  
+ 
+ # maps
+ pdf(file = paste0("Figures/","ALL_Strata_",grid_spacing/1000,".pdf"),
+     height = 8.5,width = 11)
  for(sp in sps){
    print(ggp_out[[sp]]+
            labs(title = sp))
-   
  }
- 
  dev.off()
+  ## end maps
+ 
+ 
+ 
  
  pdf(paste0("Figures/","All_annual_counts ",grid_spacing/1000,".pdf"),
      width = 11,height = 8.5)

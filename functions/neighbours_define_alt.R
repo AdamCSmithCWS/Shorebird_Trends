@@ -13,7 +13,10 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
                               voronoi = FALSE,
                               nn_fill = FALSE,
                               add_map = NULL,
-                              strat_indicator = "strat"){
+                              strat_indicator = "strat",
+                              island_link_dist_factor = 1.2 #consider nearest strata neighbours if distances are within this factor of each other, when linking otherwise isolated islands of strata
+                              
+                              ){
   
   require(spdep)
   require(sf)
@@ -68,20 +71,60 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
       ## n.comp.nb(nb_db)
       if(min(nb_info$num) == 0){
         nn_fill <- TRUE
-        message("Some strata have no neighbours, filling by nearest neighbours by centroids")
-        
-        nn = knearneigh(centres, k=1)
-        
+        message("Some strata have no neighbours, filling by 2 nearest neighbours by centroids")
+
+
+        nn = knearneigh(centres, k=2)
+
         w_rep = which(nb_info$num == 0)
-        
+
         for(i in w_rep){
-          wm <- nn[[1]][i,1]
-          nb_db[[i]] <- wm
-          nb_db[[wm]] <- c(nb_db[[wm]],i)
-          
-          
+          wm <- nn[[1]][i,c(1,2)]
+          j <- 0
+      for(wwm in wm){
+        j <- j+1
+          nb_db[[i]] <- ifelse(j > 1,c(nb_db[[i]],wwm),wwm)
+          nb_db[[wwm]] <- c(nb_db[[wwm]],i)
+          }
+
         }
+      }
       
+        distnc <- st_distance(centres)
+        n_islands <- n.comp.nb(nb_db)$nc
+        while(n_islands > 1){
+          message(paste(n_islands-1,"groups of nodes are isolated, linking by distance between centroids"))
+          
+          isls <- n.comp.nb(nb_db)
+          
+         
+            ww1 <- which(isls$comp.id == 1)
+            tmp <- distnc[ww1,-c(ww1)]
+            
+              clstn <- apply(tmp,1,min)
+              clst <- as.numeric(clstn) #minimum values in each row (for each of the sites in ww1)
+              wwcl <- (names(which.min(clstn))) #which row includes the minumum values (which site is closest)
+              ww2 <- which(as.numeric(distnc[wwcl,]) == clstn[wwcl] |
+                             (as.numeric(distnc[wwcl,]) > clstn[wwcl] &
+                                as.numeric(distnc[wwcl,]) < clstn[wwcl]*island_link_dist_factor))
+            
+              if(any(ww1 %in% ww2)){ww2 <- ww2[-which(ww2 %in% ww1)]}
+            #ww2 are the strata that should be linked to the isolated group
+            for(i in ww2){
+              
+              nb_db[[i]] <- c(nb_db[[i]],as.integer(wwcl))
+              nb_db[[as.integer(wwcl)]] <- c(nb_db[[as.integer(wwcl)]],i)
+              
+              
+            }
+            
+            n_islands <- n.comp.nb(nb_db)$nc
+            
+            }
+          
+        
+        
+        
       nb_info = spdep::nb2WB(nb_db)
       
       
@@ -95,32 +138,12 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
       yb = range(st_coordinates(box)[,"Y"])
       
       
-
+     
         
-  
-        
-        if(min(nb_info$num) == 0){stop("ERROR some strata have no neighbours")}
-        if(n.comp.nb(nb_db)$nc > 0){
-          message("Some nodes are isolated, setting Voronoi to TRUE")
-          voronoi <- TRUE
-        }
-    }else{ #end fill orphaned neighbours
-      nb_mat = spdep::nb2mat(nb_db, style = "B",
-                             zero.policy = TRUE) #binary adjacency matrix
-      
-      box <- st_as_sfc(st_bbox(real_strata_map))
-      
-      xb = range(st_coordinates(box)[,"X"])
-      yb = range(st_coordinates(box)[,"Y"])
-      
-      if(n.comp.nb(nb_db)$nc > 0){
-        message("Some nodes are isolated, setting Voronoi to TRUE")
-        voronoi <- TRUE
-      }
-    }
-    }else{
+  }else{
       voronoi <- TRUE
     }
+    
   }
   
   if(voronoi){
@@ -148,98 +171,30 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
     }
     # Voronoi polygons from centres -----------------------------------
     box <- st_as_sfc(st_bbox(centres))
+
+    xb <- range(st_coordinates(box)[,"X"])
+    yb <- range(st_coordinates(box)[,"Y"])
     
     v <- st_cast(st_voronoi(st_union(centres), envelope = box))
     
-    vint = st_sf(st_cast(st_intersection(v,cov_hull_buf),"POLYGON"))
-    vintj = st_join(vint,centres,join = st_contains)
-    vintj = arrange(vintj,strat_lab)
+    vint <- st_sf(st_cast(st_intersection(v,cov_hull_buf),"POLYGON"))
+    vintj <- st_join(vint,centres,join = st_contains)
+    vintj <- arrange(vintj,strat_lab)
     
-    nb_db = spdep::poly2nb(vintj,row.names = vintj$strat_lab,queen = FALSE)#polygon to neighbour definition
-    nb_mat = spdep::nb2mat(nb_db, style = "B",
+    nb_db <- spdep::poly2nb(vintj,row.names = vintj$strat_lab,queen = FALSE)#polygon to neighbour definition
+    nb_mat <- spdep::nb2mat(nb_db, style = "B",
                            zero.policy = TRUE) #binary adjacency matrix
     
-    
-    xb = range(st_coordinates(box)[,"X"])
-    yb = range(st_coordinates(box)[,"Y"])
-    
-    
-    # plotting the neighbourhoods to check ------------------------------------
-    # if(plot_neighbours){
-    #   
-    #   species_dirname <- gsub(pattern = " ",
-    #                           replacement = "_",
-    #                           x = species)
-    #   
-    #   
-    #   plot_file_name = paste0(plot_dir,species_dirname,plot_file,".pdf")
-    #   
-    #   cc = suppressWarnings(st_coordinates(st_centroid(vintj)))
-    #   
-    #   
-    #   nb_l <- nb2listw(nb_db)
-    #   nt = length(attributes(nb_l$neighbours)$region.id)
-    #   DA = data.frame(
-    #     from = rep(1:nt,sapply(nb_l$neighbours,length)),
-    #     to = unlist(nb_l$neighbours)
-    #   )
-    #   DA = cbind(DA,coords[DA$from,c("X","Y")],coords[DA$to,c("X","Y")])
-    #   colnames(DA)[3:6] = c("long","lat","long_to","lat_to")
-    #   
-    #   
-    #   ggp = ggplot(data = centres)+
-    #     geom_sf(data = vintj,alpha = 0,colour = grey(0.95))+ 
-    #     geom_sf(data = real_strata_map,alpha = 0.1)+ 
-    #     geom_sf(aes(col = strat_lab))+
-    #     #geom_sf_text(aes(label = strat_lab),size = 3,alpha = 0.8,colour = grey(0.7))+
-    #     labs(title = species)
-    #   
-    # 
-    #   #plot it using geom_segment
-    #   ggp <- ggp + geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),inherit.aes = FALSE,size=0.3,alpha=0.15)
-    #   
-    #   # tmp = ggplot()+
-    #   #   geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),inherit.aes = FALSE,size=0.3,alpha=0.5)
-    #   # 
-    #   if(!is.null(add_map)){
-    #     ggp <- ggp +
-    #       geom_sf(data = add_map,alpha = 0,colour = grey(0.85))+
-    #       theme_minimal()+
-    #       theme(legend.position = "none")
-    #   }else{
-    #     ggp <- ggp+
-    #       theme_minimal() +
-    #       theme(legend.position = "none")
-    #   }
-    #   pdf(file = plot_file_name,
-    #       width = 11,
-    #       height = 8.5)
-    #   plot(nb_db,cc,col = "pink")
-    #   text(labels = rownames(cc),cc ,pos = 2)
-    #   print(ggp)
-    #   dev.off()
-    #   
-    #   if(save_plot_data){
-    #     save_file_name = paste0(plot_dir,species_dirname,plot_file,"_data.RData")
-    #     
-    #     save(list = c("centres",
-    #                   "real_strata_map",
-    #                   "vintj",
-    #                   "nb_db",
-    #                   "cc",
-    #                   "nb_mat",
-    #                   "DA"),
-    #          file = save_file_name)
-    #   }
-    # }
-    # ## stop here and look at the maps (2 pages)
-    ## in the first page each route location is plotted as a point and all neighbours are linked by red lines 
-    ## in the second page all of the voronoi polygons with their route numbers are plotted
-    ### assuming the above maps look reasonable 
+  
     nb_info = spdep::nb2WB(nb_db)
     
     if(min(nb_info$num) == 0){stop("ERROR some strata have no neighbours")}
     
+    if(fill_v){
+      
+      
+      
+    }
     
   }#end if voronoi
   
@@ -267,66 +222,32 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
     
     #if(voronoi){
     ggp <- ggplot(data = centres)+ 
-      geom_sf(aes(col = strat_lab)) 
+      geom_sf(aes(col = strat_lab,alpha = 0.5)) 
     # }else{
     #   ggp <- ggplot(data = real_strata_map)+ 
     #     geom_sf(aes(alpha = 0))  
     #   }
     
-    
-    # #### temp bits to generate some demo graphs of neighbour definitions
-    # ggp <- ggp + 
-    #   geom_sf(aes(col = strat_lab)) + 
-    #   geom_sf(data = real_strata_map,alpha = 0,colour = grey(0.85))+
-    #   #geom_sf_text(aes(label = strat_lab),size = 3,alpha = 0.8,colour = grey(0.7))+
-    #   geom_sf(data = add_map,alpha = 0,colour = grey(0.85))+
-    #   labs(title = species) +
-    #   #geom_sf(data = vintj,alpha = 0,colour = grey(0.85))+
-    #   theme_minimal()+
-    #   theme(legend.position = "none")
-    # 
-    # ggp <- ggp + 
-    #   #geom_sf(aes(col = strat_lab)) + 
-    #   #geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),inherit.aes = FALSE,size=0.3,alpha=0.1) +
-    #   geom_sf(data = vintj,alpha = 0,colour = grey(0.85))
-    #   
-    # ggp <- ggplot(data = centres)
-    # 
-    # ggp <- ggp + 
-    #   geom_sf(aes(col = strat_lab)) + 
-    #   geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),inherit.aes = FALSE,size=0.3,alpha=0.1) +
-    #   geom_sf(data = real_strata_map,alpha = 0,colour = grey(0.85))+
-    #   #geom_sf_text(aes(label = strat_lab),size = 3,alpha = 0.8,colour = grey(0.7))+
-    #   geom_sf(data = add_map,alpha = 0,colour = grey(0.85))+
-    #   labs(title = species) +
-    #   #geom_sf(data = vintj,alpha = 0,colour = grey(0.85))+
-    #   theme_minimal()+
-    #   theme(legend.position = "none")
-    # 
-    # 
-    # ### temp
-    
+    if(!is.null(add_map)){
+      
+      ggp <- ggp +
+        geom_sf(data = add_map,alpha = 0,colour = grey(0.9))
+    }
+  
     ggp <- ggp + 
-      geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),inherit.aes = FALSE,size=0.3,alpha=0.1) +
+      geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),
+                   inherit.aes = FALSE,size=0.3,alpha=0.4) +
       geom_sf(data = vintj,alpha = 0,colour = grey(0.95))+ 
       geom_sf(data = real_strata_map,alpha = 0,colour = grey(0.85))+
-      geom_sf_text(aes(label = strat_lab),size = 3,alpha = 0.8,colour = grey(0.7))+
-      labs(title = species)
-    
-    
-    if(!is.null(add_map)){
-      ggp <- ggp +
-        geom_sf(data = add_map,alpha = 0,colour = grey(0.85))+
-        theme_minimal()+
-        coord_sf(xlim = xb,ylim = yb)+
-        theme(legend.position = "none")
-    }else{
-      ggp <- ggp+
+      geom_sf_text(aes(label = strat_lab),size = 5,alpha = 0.7,colour = "black")+
+      labs(title = species)+
         theme_minimal() +
         coord_sf(xlim = xb,ylim = yb)+
         theme(legend.position = "none")
-    }
-    pdf(file = plot_file_name,
+    
+  
+    
+      pdf(file = plot_file_name,
         width = 11,
         height = 8.5)
     #plot(nb_db,centres,col = "pink")

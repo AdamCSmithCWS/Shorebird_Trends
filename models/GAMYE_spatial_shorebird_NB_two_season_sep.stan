@@ -53,7 +53,7 @@ data {
 }
 
 parameters {
-  vector[nsites] alpha_raw;             // intercepts
+  vector[nsites] alpha;             // intercepts
   vector[nyears] year_effect_raw;             // continental year-effects
   matrix[nstrata,nknots_year] b_raw;         // spatial effect slopes (0-centered deviation from continental mean slope B)
   vector[nknots_year] B_raw;             // GAM coefficients year
@@ -77,7 +77,7 @@ transformed parameters {
   matrix[ndays,2] season_pred;
     matrix[nyears,nstrata] year_pred;
   vector[nyears] Y_pred; 
-  vector[nsites] alpha;
+  //vector[nsites] alpha;
   vector[nknots_year] B;
    matrix[nstrata,nknots_year] b;
    vector[nyears] year_effect;             // continental year-effects
@@ -86,7 +86,7 @@ transformed parameters {
  
   phi = 1/sqrt(sdnoise);
 
-  alpha = sdalpha*alpha_raw;// + beta_size*site_size;
+  //alpha = sdalpha*alpha_raw;// + beta_size*site_size;
   B = sdyear_gam*B_raw;
   year_effect = sdyear*year_effect_raw;
   
@@ -115,7 +115,7 @@ transformed parameters {
   
   
 model { 
-  sdnoise ~ student_t(3,0,2); //prior on scale of extra Poisson log-normal variance
+  sdnoise ~ student_t(3,0,10); //prior on scale of extra Poisson log-normal variance
   sdyear ~ normal(0,0.2); //prior on scale of annual fluctuations - 
   // above is informative so that 95% of the prior includes yearly fluctuations fall
   // between 33% decrease and a 50% increase
@@ -129,11 +129,12 @@ model {
   B_season_raw2 ~ std_normal();//GAM parameters
 
   count ~ neg_binomial_2_log(E,phi); //vectorized count likelihood
-  alpha_raw ~ std_normal(); // fixed site-effects
+  //alpha_raw ~ std_normal(); // fixed site-effects
+  alpha ~ normal(0,sdalpha);
   B_raw ~ std_normal();// prior on GAM hyperparameters
   year_effect_raw ~ std_normal(); //prior on ▲annual fluctuations
   sum(year_effect_raw) ~ normal(0,0.0001*nyears);//sum to zero constraint on year-effects
-  sum(alpha_raw) ~ normal(0,0.001*nsites);//sum to zero constraint on site-effects
+  sum(alpha) ~ normal(0,0.001*nsites);//sum to zero constraint on site-effects
 
   
     for(k in 1:nknots_year){
