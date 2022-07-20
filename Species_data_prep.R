@@ -250,7 +250,7 @@ neighbours = neighbours_define(real_strata_map = real_grid_regs,
                                strat_indicator = "stratn",
                                plot_dir = "FIgures/maps/",
                                plot_file = "_strata_map",
-                               voronoi = FALSE)
+                               voronoi = TRUE)
 
 ggp_out[[sp]] <- neighbours$map
 

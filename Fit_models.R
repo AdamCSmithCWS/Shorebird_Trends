@@ -16,7 +16,7 @@ registerDoParallel(cluster)
 
 
 
-fullrun <- foreach(sp = sps[1:6],
+fullrun <- foreach(sp = sps[c(11,14)],
                    .packages = c("cmdstanr","tidyverse"),
                    .inorder = FALSE,
                    .errorhandling = "pass") %dopar%
@@ -24,7 +24,7 @@ fullrun <- foreach(sp = sps[1:6],
     
     
 # for(sp in sps[c(1:4)]){
-  
+  library(cmdstanr)
   load(paste0("data/species_stan_data/",sp,"_stan_data.RData"))
   species_f <- gsub(pattern = " ",sp,replacement = "_")
   
@@ -32,7 +32,7 @@ output_dir <- "output/"
 out_base <- paste0(species_f,"_NB")
 csv_files <- paste0(out_base,"-",1:3,".csv")
 
-if(file.exists(csv_files[1])){next}
+#if(file.exists(paste0(output_dir,csv_files[1]))){next}
 
 print(paste("beginning",sp,Sys.time()))
 
