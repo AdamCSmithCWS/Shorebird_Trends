@@ -89,9 +89,9 @@ map <- read_sf(dsn = "data",
 
 st_crs(map)
 
-iss_sites = unique(iss_samp[,c("locality","locality_id",
-                        "latitude",
-                        "longitude")])
+# iss_sites = unique(iss_samp[,c("locality","locality_id",
+#                         "latitude",
+#                         "longitude")])
 
 
 iss_obs <- unique(iss[,c("locality","locality_id",
@@ -100,22 +100,46 @@ iss_obs <- unique(iss[,c("locality","locality_id",
 
 iss_obs = st_as_sf(iss_obs,coords = c("longitude","latitude"), crs = 4326)
 
-
-
-
 iss_obs_regs <- st_join(iss_obs, map, join = st_nearest_feature)
 
-iss_samp <- inner_join(iss_samp,iss_obs_regs[,c("locality_id","locality","Region","Region_FR")])
+iss_regs_j <- iss_obs_regs %>% 
+  as.data.frame() %>% 
+  select(locality_id,Region,Region_FR) %>% 
+  distinct()
+
+
+iss_samp2 <- iss %>% 
+  select(checklist_id,
+         country,
+         country_code,
+         state,
+         state_code,
+         bcr_code,
+         locality,
+         locality_id,
+         locality_type,
+         latitude,
+         longitude,
+         observation_date,
+         time_observations_started,
+         #observer_id,
+         #sampling_event_identifier,
+         protocol_code,
+         protocol_type,
+         project_code,
+         duration_minutes,
+         effort_distance_km,
+         effort_area_ha,
+         number_observers) %>% 
+  distinct()
+
+
+# iss_samp <- inner_join(iss_samp,iss_obs_regs[,c("locality_id","locality","Region","Region_FR")])
 
 
 # Zero-fill manual --------------------------------------------------------
-iss_s2 <- expand_grid(iss_samp,sps) #making complete list of checklists and species
+iss_s2 <- expand_grid(iss_samp2,sps) #making complete list of checklists and species
 iss_s2 <- mutate(iss_s2,common_name = sps)
-
-iss_m <- full_join(iss[,c("checklist_id","common_name","observation_count")],iss_s2) #merging species observations
-
-iss_m[which(is.na(iss_m$observation_count)),"observation_count"] <- "0"
-
 
 # function to convert time observation to hours since midnight
 time_to_decimal <- function(x) {
@@ -123,58 +147,72 @@ time_to_decimal <- function(x) {
   hour(x) + minute(x) / 60 + second(x) / 3600
 }
 
+
 # clean up variables and further filtering to 1974 -
-iss_m1 <- iss_m %>% 
-  mutate(
-    # convert X to NA
-    observation_count = if_else(observation_count == "X", 
-                                NA_character_, observation_count),
-    observation_count = as.integer(observation_count),
-    # convert time to decimal hours since midnight
-    time_observations_started = time_to_decimal(time_observations_started),
-    # split date into year and day of year
-    year = year(observation_date),
-    day_of_year = yday(observation_date),
-  ) %>% 
-  filter(.,year > 1973 & year < 2022,
-         !is.na(observation_count))
+iss_m <- iss %>% 
+  select(checklist_id,common_name,observation_count) %>% 
+  full_join(.,iss_s2) %>% 
+  mutate(common_name = ifelse(!is.na(common_name), common_name,sps),
+         # convert X to NA
+         observation_count = if_else(observation_count == "X", 
+                                     NA_character_, observation_count),
+         observation_count = as.integer(observation_count),
+         observation_count = ifelse(!is.na(observation_count), observation_count,0),
+         # convert time to decimal hours since midnight
+         time_observations_started = time_to_decimal(time_observations_started),
+         # split date into year and day of year
+         year = year(observation_date),
+         day_of_year = yday(observation_date)) %>% 
+  filter(.,year > 1973 & year < 2022) %>% 
+  left_join(.,iss_regs_j) %>% 
+  arrange(observation_date,checklist_id)
+
+
 
 
 
 ### effort info in ISS is only common in the last ~10 years.
-wEMin = which(!is.na(iss_m1$duration_minutes))
-wEArea = which(!is.na(iss_m1$effort_area_ha))
-wEdist = which(!is.na(iss_m1$effort_distance_km))
+wEMin = which(!is.na(iss_m$duration_minutes))
+wEArea = which(!is.na(iss_m$effort_area_ha))
+wEdist = which(!is.na(iss_m$effort_distance_km))
 
 wEffort = unique(c(wEMin,wEArea,wEdist))
-eff_y = table(iss_m1[wEffort,"year"])
-all_y = table(iss_m1$year)
+eff_y = table(iss_m[wEffort,"year"])
+all_y = table(iss_m$year)
 plot(eff_y/all_y)
 eff_y/all_y
 # 1974      1975      1976      1977      1978      1979      1980      1981      1982      1983      1984      1985 
-# 0.4394251 0.4340391 0.3358885 0.2286501 0.2830269 0.2528172 0.3234516 0.3350725 0.3022303 0.2301539 0.2956811 0.3312833 
+# 0.4188034 0.4412752 0.3415162 0.2337221 0.2905103 0.2585416 0.3300330 0.3435805 0.3095578 0.2559955 0.3068966 0.3361470 
 # 1986      1987      1988      1989      1990      1991      1992      1993      1994      1995      1996      1997 
-# 0.3014130 0.3135569 0.3017187 0.4323589 0.2840839 0.2420660 0.2463394 0.3162309 0.2969783 0.4118961 0.3082070 0.3062616 
+# 0.3109850 0.3214062 0.3064085 0.4472882 0.2912683 0.2485323 0.2618182 0.3253542 0.3085686 0.4301018 0.3348534 0.3226758 
 # 1998      1999      2000      2001      2002      2003      2004      2005      2006      2007      2008      2009 
-# 0.3097801 0.3006575 0.3651666 0.3534024 0.3552733 0.4585016 0.3594416 0.3854373 0.8984423 0.8244957 0.8785090 0.8987844 
+# 0.3284133 0.3166360 0.3834489 0.3850475 0.3961010 0.5032614 0.3950942 0.4113322 0.8941849 0.8581560 0.8751234 0.8972858 
 # 2010      2011      2012      2013      2014      2015      2016      2017      2018      2019      2020      2021 
-# 0.9005911 0.9885098 0.9943579 0.9886439 0.9964861 0.9957109 0.9982961 0.9949690 1.0000000 1.0000000 1.0000000 1.0000000  
+# 0.8965922 0.9891892 0.9971231 0.9973133 0.9978881 0.9970603 0.9995112 0.9945504 1.0000000 1.0000000 1.0000000 1.0000000   
 
 all_y  # what happened in 2006?
-# 1974   1975   1976   1977   1978   1979   1980   1981   1982   1983   1984   1985   1986   1987   1988   1989   1990 
-# 27272  68768  80360 121968 130984 114296 105784  96600 123032 115514 101136 117072 112948  92838  87976  97766  91128 
-# 1991   1992   1993   1994   1995   1996   1997   1998   1999   2000   2001   2002   2003   2004   2005   2006   2007 
-# 89992  83592 121620 118608 111028  95358 121406 114804 132922 139728 144634 145488 124824 144424 141512  61758  95086 
-# 2008   2009   2010   2011   2012   2013   2014   2015   2016   2017   2018   2019   2020   2021 
-# 121688 112868 100836 102174 109180 118350 127494 130564 131464 134368 103376 116256 145496 110874 
+# 1974  1975  1976  1977  1978  1979  1980  1981  1982  1983  1984  1985  1986  1987  1988  1989  1990  1991  1992  1993 
+# 13104 33376 38780 57624 62552 54908 50904 46452 58884 50204 48720 56392 54292 44604 41944 45948 43932 42924 38500 57316 
+# 1994  1995  1996  1997  1998  1999  2000  2001  2002  2003  2004  2005  2006  2007  2008  2009  2010  2011  2012  2013 
+# 56532 52276 42980 56924 53116 60928 64624 64792 63196 55804 63924 64736 29372 43428 56728 52612 47656 46620 48664 52108 
+# 2014  2015  2016  2017  2018  2019  2020  2021 
+# 53032 57148 57288 61656 46592 52612 67928 49252 
 
-n_country_y <- iss_samp %>% 
+n_country_y <- iss_m %>% 
+  select(country,year,checklist_id) %>% 
+  distinct() %>% 
+  ungroup() %>% 
   group_by(country,year) %>% 
-  summarise(n = n())
+  summarise(n = n(),
+            .groups = "drop") %>% 
+  arrange(year)
 
-
-
-#iss_m1$locality_id #this is the unique site identifier
+tmpp <- ggplot(data = n_country_y,
+               aes(x = year, y = n,colour = country))+
+  geom_line()+
+  ylab("Number of ISS-protocol surveys in eBird")+
+  scale_y_continuous(limits = c(0,NA))
+print(tmpp)
 
 
 # ISS data to bind --------------------------------------------------------
@@ -183,7 +221,7 @@ n_country_y <- iss_samp %>%
 
 
 
-iss_full <- iss_m1[,c("checklist_id",
+ssData <- iss_m[,c("checklist_id",
                    "common_name",
                    "observation_count",
                    "country",
@@ -197,7 +235,7 @@ iss_full <- iss_m1[,c("checklist_id",
                    "day_of_year")]
 
 #renaming to match AKN headers
-iss_full <- rename(iss_full,
+ssData <- rename(ssData,
                    SamplingEventIdentifier = checklist_id,
                    CommonName = common_name,
                    ObservationCount = observation_count,
@@ -211,197 +249,21 @@ iss_full <- rename(iss_full,
                    doy = day_of_year)
 
 
-# ISS data have some sites with no bird observations in some years --------
-## , despite multiple surveys and many observations in previous year
-## e.g., L125009, L125100
-site_yr_sum <- iss_full %>% group_by(YearCollected,SurveyAreaIdentifier) %>% 
-  summarise(sum_all_sp = sum(ObservationCount),
-            n_visits = n()/28)
-write.csv(site_yr_sum,"site_yr_sum_count_ISS.csv")
 
-site_yr_sum <-  filter(site_yr_sum,n_visits > 2 & sum_all_sp == 0)
-
-### this identifies sites where they've had > 2 surveys conducted and no birds have been seen.
-### this code drops these site*year combinations - there's something wrong with these data
-for(j in 1:nrow(site_yr_sum)){
-  ss = as.character(site_yr_sum[j,"SurveyAreaIdentifier"])
-  yy = as.integer(site_yr_sum[j,"YearCollected"])
-  tmp <- which(iss_full$SurveyAreaIdentifier == ss & iss_full$YearCollected == yy)
-  if(j == 1){
-    iss_drop = tmp
-  }else{
-    iss_drop = c(iss_drop,tmp)
-  }
-}
-  # = tapply(iss_full$ObservationCount,iss_full[,c("YearCollected","SurveyAreaIdentifier")],sum,na.rm = T)
-  
-  
-iss_full <- iss_full[-iss_drop,]
-  
-  
-site_yr_sum <- iss_full %>% group_by(YearCollected,SurveyAreaIdentifier) %>% 
-  summarise(sum_all_sp = sum(ObservationCount),
-            n_visits = n()/28)
-write.csv(site_yr_sum,"site_yr_sum_count_ISS_post.csv")
-
-site_yr_sum <-  filter(site_yr_sum,n_visits > 2 & sum_all_sp == 0)
 
   
-# Nature Counts data ------------------------------------------------------
-
-install.packages("naturecounts", 
-                 repos = c(birdscanada = 'https://birdscanada.r-universe.dev',
-                           CRAN = 'https://cloud.r-project.org'))
-
-# OSS data ---------------------------------------------------------------
-
-# oss <- read.delim("data/OSS_8July2020.txt",stringsAsFactors = F,nrows = 48006)
-## not sure why, but the original file won't load properly - 
-# Warning message:
-#   In scan(file = file, what = what, sep = sep, quote = quote, dec = dec,  :
-#             EOF within quoted string
-# after warning, it only loads ~6000 rows and even those rows are not properly loaded
-# Solution was to open it in excel (tab delimited), save as csv, then import csv below        
-oss <- read.csv("data/OSS_8July2020.csv",stringsAsFactors = F)
-
-
-
-# ACSS data ---------------------------------------------------------------
-
-acss <- read.delim("data/ACSS_8July2020.txt",stringsAsFactors = F)
-
-
-acss <- acss[-which(acss$SamplingEventIdentifier == ""),]
-
-
-# Filtering columns -------------------------------------------------------
-
-
-#names(oss)
-#c("GlobalUniqueIdentifier","DateLastModified","BasisOfRecord","InstitutionCode","CollectionCode","CatalogNumber","ScientificName","HigherTaxon","Kingdom","Phylum","Class","Order","Family","Genus","SpecificEpithet","InfraspecificRank","InfraspecificEpithet","ScientificNameAuthor","IdentificationQualifier","HigherGeography","Continent","WaterBody","IslandGroup","Island","Country","StateProvince","County","Locality","MinimumElevationInMeters","MaximumElevationInMeters","MinimumDepthInMeters","MaximumDepthInMeters","DecimalLatitude","DecimalLongitude","GeodeticDatum","CoordinateUncertaintyInMeters","YearCollected","MonthCollected","DayCollected","TimeCollected","JulianDay","Collector","Sex","LifeStage","ImageURL","RelatedInformation","CollectorNumber","FieldNumber","FieldNotes","OriginalCoordinatesSystem","LatLongComments","GeoreferenceMethod","GeoreferenceReferences","GeoreferenceVerificationStatus","Remarks","FootprintWKT","FootprintSRS","ProjectCode","ProtocolType","ProtocolCode","ProtocolSpeciesTargeted","ProtocolReference","ProtocolURL","SurveyAreaIdentifier","SurveyAreaSize","SurveyAreaPercentageCovered","SurveyAreaShape","SurveyAreaLongAxisLength","SurveyAreaShortAxisLength","SurveyAreaLongAxisOrientation","CoordinatesScope","SamplingEventIdentifier","SamplingEventStructure","RouteIdentifier","TimeObservationsStarted","TimeObservationsEnded","DurationInHours","TimeIntervalStarted","TimeIntervalEnded","TimeIntervalsAdditive","NumberOfObservers","EffortMeasurement1","EffortUnits1","EffortMeasurement2","EffortUnits2","EffortMeasurement3","EffortUnits3","EffortMeasurement4","EffortUnits4","EffortMeasurement5","EffortUnits5","EffortMeasurement6","EffortUnits6","EffortMeasurement7","EffortUnits7","EffortMeasurement8","EffortUnits8","EffortMeasurement9","EffortUnits9","EffortMeasurement10","EffortUnits10","EffortMeasurement11","EffortUnits11","EffortMeasurement12","EffortUnits12","EffortMeasurement13","EffortUnits13","EffortMeasurement14","EffortUnits14","EffortMeasurement15","EffortUnits15","EffortMeasurement16","EffortUnits16","EffortMeasurement17","EffortUnits17","EffortMeasurement18","EffortUnits18","NoObservations","DistanceFromObserver","DistanceFromObserverMin","DistanceFromObserverMax","DistanceFromStart","BearingInDegrees","SpecimenDecimalLatitude","SpecimenDecimalLongitude","SpecimenGeodeticDatum","SpecimenUTMZone","SpecimenUTMNorthing","SpecimenUTMEasting","ObservationCount","ObservationDescriptor","ObservationCount2","ObservationDescriptor2","ObservationCount3","ObservationDescriptor3","ObservationCount4","ObservationDescriptor4","ObservationCount5","ObservationDescriptor5","ObservationCount6","ObservationDescriptor6","ObsCountAtLeast","ObsCountAtMost","ObservationDate","DateUncertaintyInDays","AllIndividualsReported","AllSpeciesReported","UTMZone","UTMNorthing","UTMEasting","CoordinatesUncertaintyInDecimalDegrees","CommonName","RecordPermissions","MultiScientificName1","MultiScientificName2","MultiScientificName3","MultiScientificName4","MultiScientificName5","MultiScientificName6","TaxonomicAuthorityAuthors","TaxonomicAuthorityVersion","TaxonomicAuthorityYear","SpeciesCode","TaxonConceptID","BreedingBirdAtlasCode","HabitatDescription","Remarks2","LastModifiedAction","RecordReviewStatus")
-nc_cols <- c("CatalogNumber","ScientificName","Genus","SpecificEpithet",
-  "Country","StateProvince","County","Locality","DecimalLatitude","DecimalLongitude","GeodeticDatum",
-  "YearCollected","MonthCollected","DayCollected","JulianDay",
-  "CollectorNumber",
-  "ProjectCode","ProtocolType","SurveyAreaIdentifier",
-  "SurveyAreaShape",
-  "SamplingEventIdentifier",
-  "DurationInHours","NumberOfObservers",
-  "EffortMeasurement1","EffortUnits1",
-  "EffortMeasurement2","EffortUnits2",
-  "NoObservations",
-  "ObservationCount","ObservationDescriptor",
-  "ObservationDate",
-  "AllIndividualsReported","AllSpeciesReported",
-  "UTMZone","UTMNorthing","UTMEasting",
-  "CommonName","TaxonomicAuthorityAuthors","TaxonomicAuthorityVersion","TaxonomicAuthorityYear","SpeciesCode")
-
-
-oss <- oss[,nc_cols]
-acss <- acss[,nc_cols]
-
-oss[,"SurveyAreaIdentifier"] <- as.character(oss[,"SurveyAreaIdentifier"])
-acss[,"SurveyAreaIdentifier"] <- as.character(acss[,"SurveyAreaIdentifier"])
-
-css <- bind_rows(acss,oss)
-# css$SurveyAreaIdentifier <- paste(css$ProjectCode,css$SurveyAreaIdentifier,sep = "_")
-#above is unecessary column is unique across both datasets
-
-## drops or fixes the observations with no valid dates and outside of the fall migration period
-css <- css[which(!is.na(css$MonthCollected) & css$MonthCollected > 6 & css$MonthCollected < 12),] 
-css <- css[which(css$YearCollected > 1973),] 
-
-css[which(is.na(css$DayCollected)),"DayCollected"] <- 15 #this places the observation in teh middle of the month
-
-css$ObservationDate <- lubridate::ymd(paste(css$YearCollected,css$MonthCollected,css$DayCollected,sep = "/"))
-css$doy <- lubridate::yday(css$ObservationDate)
-
-
-## drops all sites with no coordinates (there are ~2000 observations and this is about 1% of the total ACSS and OSS combined) most have no information on province or county as well
-css <- css[which(!is.na(css$DecimalLatitude)),]
-
-
-# identifying unique sites and sampling events ------------------------------------------------
-
-css_samp <- unique(css[,c("SamplingEventIdentifier",
-                          "Country",
-                          "StateProvince",
-                          "SurveyAreaIdentifier",
-                          "DecimalLatitude",
-                          "DecimalLongitude",
-                          "YearCollected",
-                          "doy")])
-
-
-# overlaying with regions -------------------------------------------------
-
-css_sites = unique(css_samp[,c("SurveyAreaIdentifier",
-                               "DecimalLatitude",
-                               "DecimalLongitude")])
-
-css_sites = st_as_sf(css_sites,coords = c("DecimalLongitude","DecimalLatitude"), crs = 4326)
-
-
-css_sites_regs <- st_join(css_sites, map, join = st_nearest_feature)
-
-css_samp <- left_join(css_samp,data.frame(css_sites_regs[,c("SurveyAreaIdentifier","Region")]))
-
-
-
-
-#full sampling event by species matrix
-css_full <- expand_grid(css_samp,sps)
-css_full <- rename(css_full,
-                   CommonName = sps)
-
-
-#confirming common species names are the same
-css_sps <- unique(css$CommonName)
-#sps[-which(sps %in% css_sps)]
-#character(0)
-
-
-# dropping species not included, extra columns, and pres/abs --------------------------------
-css <- css[which(css$CommonName %in% sps &
-                   css$ObservationDescriptor != "Presence/Absence"),c("SamplingEventIdentifier",
-                                                                 "CommonName",
-                                            "ObservationCount")]
-
-
-# zero fill css data  -----------------------------------------------------
-
-
-css_full <- left_join(css_full,css,by = c("SamplingEventIdentifier","CommonName"))
-css_full[which(is.na(css_full$ObservationCount)),"ObservationCount"] <- 0
-
-css_full <- select(css_full,-geometry)
-css_full$Country <- "Canada" #some country values are missing from the ACSS file
-
-
-
-
-
-# Combining ISS and CSS data ----------------------------------------------
-# includes observations, zero-filled, and all sampling events
-
-
-
-
-ssData = bind_rows(css_full,iss_full)
-
-
 
 # adding national divisions to regions ------------------------------------
 
 
 ssData[which(ssData$Region == "East Inland" &
-               ssData$StateProvince == "ON"),"Region"] <- "Ontario"
+               ssData$StateProvince == "CA-ON"),"Region"] <- "Ontario"
 ssData[which(ssData$Region == "Northeast Coastal" &
                ssData$Country == "Canada"),"Region"] <- "Atlantic Canada"
 ssData[which(ssData$Region == "Northeast Coastal" &
                ssData$Country == "United States"),"Region"] <- "Northeast US Coastal"
 
-
+table(ssData$Country,ssData$Region)
 
 
 save(list = c("ssData",
