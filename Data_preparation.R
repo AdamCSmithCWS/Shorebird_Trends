@@ -1,62 +1,87 @@
-### copiling ISS data from eBird with OSS and ACSS data from naturecounts
+### compiling ISS data from eBird with OSS and ACSS data from naturecounts
 
-### extracting the ISS data from eBird
-
-library(auk)
-library(tidyverse)
-library(lubridate)
-library(sf)
-
-
-# untar("E:/eBird_all/ebd_sampling_relJun-2020.tar",exdir = "E:/eBird_all")
-# untar("E:/eBird_all/ebd_relJun-2020.tar",exdir = "E:/eBird_all")
-### setting path to eBird full dataset
-#auk::auk_set_ebd_path("E:/eBird_all",overwrite = T)
 
 # species list from the last analysis - useful to filter down to the species likely to provide sufficient info to estimate trends
 sps1 = read.csv("data/species_list.csv")
 sps = unique(sps1$Species)
 
 
-#ebd <- auk_ebd("E:/eBird_all/ebd_relJun-2020.txt", 
- #              file_sampling = "E:/eBird_all/ebd_sampling_relJun-2020.txt")
+### extracting the ISS, OSS, and ACSS data from eBird
+
+
+### only need running once
+# library(auk)
+# library(archive)
+#
+# archive_extract("data/eBird/tar/ebd_sampling_relJul-2022.tar",dir = "data/eBird")
+#  archive_extract("data/eBird/tar/ebd_US_relJul-2022.tar",dir = "data/eBird/US")
+#  #untar("data/eBird/tar/ebd_CA_relJul-2022.tar",exdir = "data/eBird/CA")
+#  archive_extract("data/eBird/tar/ebd_CA_relJul-2022.tar",dir = "data/eBird/CA")
+#  gunzip("data/eBird/CA/ebd_CA_relJul-2022.txt.gz")
+#  gunzip("data/eBird/US/ebd_US_relJul-2022.txt.gz")
+#  gunzip("data/eBird/ebd_sampling_relJul-2022.txt.gz")
+#  
+
+# 
+# iss <- NULL
+# iss_samp <- NULL
+# 
+# for(rr in c("CA","US")){
+#   data_dir <- paste0("data/eBird/",rr)
+#   auk::auk_set_ebd_path(data_dir,overwrite = T)
+#   out_sampling <- file.path(data_dir, paste0("ebd_",rr,"_ISS_sampling.txt"))
+#   out_ebd <- file.path(data_dir, paste0("ebd_",rr,"_ISS.txt"))
+#   #  
+# ebd_filters <- auk_ebd(file = paste0("data/eBird/",rr,"/ebd_",rr,"_relJul-2022.txt"),
+#                        file_sampling = "data/eBird/ebd_sampling_relJul-2022.txt",
+#                        sep = "\t") %>% 
+#   auk_species(species = sps) %>% 
+#   auk_date(date = c("*-07-01", "*-11-30")) %>% # fall surveys only
+#   auk_protocol(protocol = c("International Shorebird Survey (ISS)")) %>% # restrict to the ISS protocol
+#     auk_filter(file = out_ebd, 
+#                file_sampling = out_sampling,
+#                overwrite = TRUE)
+# 
+# 
+# 
+# 
+# iss_tmp = read_ebd(out_ebd)
+# 
+# iss_samp_tmp = read_sampling(out_sampling)
+# 
+# iss <- bind_rows(iss,iss_tmp)
+# iss_samp <- bind_rows(iss_samp,iss_samp_tmp)
+# 
+# }
+# 
+# save(list = c("iss","iss_samp"),
+#      file = "data/all_iss_eBird.RData")
 
 # 
 # 
 # ebd_filters <- ebd %>% 
-#    auk_species(species = sps) %>% 
+#    
 #   # # southeastern coastal plain bcr
 #   auk_country(country = c("US","CA")) %>% 
-#   # fall surveys only
-#   auk_date(date = c("*-07-01", "*-11-30")) %>% 
-#   # restrict to the ISS protocol
-#   auk_protocol(protocol = c("International Shorebird Survey (ISS)")) 
+#   
+#   
+#   
+#    
 # 
 
 
 # post filtering ----------------------------------------------------------
 
+library(tidyverse)
+library(lubridate)
+library(sf)
 
-data_dir <- "data"
-if (!dir.exists(data_dir)) {
-  dir.create(data_dir)
-}
-f_ebd <- file.path(data_dir, "ebd_ISS.txt")
-f_sampling <- file.path(data_dir, "ebd_ISS_sampling.txt")
-
-# only run if the files don't already exist
-if (!file.exists(f_ebd)) {
-  auk_filter(ebd_filters, file = f_ebd, file_sampling = f_sampling)
-}
-
-iss = read_ebd(f_ebd)
-
-iss_samp = read_sampling(f_sampling)
+load("data/all_iss_eBird.RData")
 
 
-
-
-
+iss <- iss %>% 
+  filter(!state %in% c("Alaska","Hawaii",
+                       "Northwest Territories"))
 
 # fitting to strata - geographic overlay ----------------------------------
 map <- read_sf(dsn = "data",
@@ -69,14 +94,18 @@ iss_sites = unique(iss_samp[,c("locality","locality_id",
                         "longitude")])
 
 
+iss_obs <- unique(iss[,c("locality","locality_id",
+                              "latitude",
+                              "longitude")])
+
+iss_obs = st_as_sf(iss_obs,coords = c("longitude","latitude"), crs = 4326)
 
 
-iss_sites = st_as_sf(iss_sites,coords = c("longitude","latitude"), crs = 4326)
 
 
-iss_sites_regs <- st_join(iss_sites, map, join = st_nearest_feature)
+iss_obs_regs <- st_join(iss_obs, map, join = st_nearest_feature)
 
-iss_samp <- left_join(iss_samp,iss_sites_regs[,c("locality_id","locality","Region","Region_FR")])
+iss_samp <- inner_join(iss_samp,iss_obs_regs[,c("locality_id","locality","Region","Region_FR")])
 
 
 # Zero-fill manual --------------------------------------------------------
@@ -94,7 +123,7 @@ time_to_decimal <- function(x) {
   hour(x) + minute(x) / 60 + second(x) / 3600
 }
 
-# clean up variables and further filtering to just US data and just years 1974 - 2019
+# clean up variables and further filtering to 1974 -
 iss_m1 <- iss_m %>% 
   mutate(
     # convert X to NA
@@ -107,8 +136,7 @@ iss_m1 <- iss_m %>%
     year = year(observation_date),
     day_of_year = yday(observation_date),
   ) %>% 
-  filter(.,year > 1973 & year < 2020,
-         country == "United States",
+  filter(.,year > 1973 & year < 2022,
          !is.na(observation_count))
 
 
@@ -123,21 +151,31 @@ eff_y = table(iss_m1[wEffort,"year"])
 all_y = table(iss_m1$year)
 plot(eff_y/all_y)
 eff_y/all_y
-# 1976        1977        1978        1979        1980        1981        1982        1983        1984        1985        1986        1987        1988        1989        1990        1991 
-# 0.011201629 0.014334862 0.008196721 0.015767132 0.019313305 0.022562450 0.015394089 0.029808774 0.019551050 0.026139410 0.031914894 0.047206924 0.033912324 0.032198712 0.031645570 0.025196850 
-# 1992        1993        1994        1995        1996        1997        1998        1999        2000        2001        2002        2003        2004        2005        2006        2007 
-# 0.033626902 0.018443804 0.018308081 0.020177563 0.022222222 0.020176545 0.021428571 0.015455066 0.018724400 0.015025042 0.038336933 0.132538105 0.108346293 0.095898004 0.608996540 0.696969697 
-# 2008        2009        2010        2011        2012        2013        2014        2015        2016        2017        2018        2019 
-# 0.799697657 0.805788982 0.802350427 0.964864865 0.979458450 0.945194599 0.977719528 0.990298507 0.993333333 0.982922201 1.000000000 1.000000000
+# 1974      1975      1976      1977      1978      1979      1980      1981      1982      1983      1984      1985 
+# 0.4394251 0.4340391 0.3358885 0.2286501 0.2830269 0.2528172 0.3234516 0.3350725 0.3022303 0.2301539 0.2956811 0.3312833 
+# 1986      1987      1988      1989      1990      1991      1992      1993      1994      1995      1996      1997 
+# 0.3014130 0.3135569 0.3017187 0.4323589 0.2840839 0.2420660 0.2463394 0.3162309 0.2969783 0.4118961 0.3082070 0.3062616 
+# 1998      1999      2000      2001      2002      2003      2004      2005      2006      2007      2008      2009 
+# 0.3097801 0.3006575 0.3651666 0.3534024 0.3552733 0.4585016 0.3594416 0.3854373 0.8984423 0.8244957 0.8785090 0.8987844 
+# 2010      2011      2012      2013      2014      2015      2016      2017      2018      2019      2020      2021 
+# 0.9005911 0.9885098 0.9943579 0.9886439 0.9964861 0.9957109 0.9982961 0.9949690 1.0000000 1.0000000 1.0000000 1.0000000  
+
 all_y  # what happened in 2006?
-# 1976  1977  1978  1979  1980  1981  1982  1983  1984  1985  1986  1987  1988  1989  1990  1991  1992  1993  1994  1995  1996  1997  1998  1999  2000  2001  2002  2003  2004  2005  2006  2007 
-# 27496 48832 47824 46172 39144 34748 45472 49784 38668 41776 42112 35588 33852 30436 35392 35560 34972 48580 44352 34692 35280 44408 43120 48916 47852 50316 51856 42252 54012 50512  8092 29568 
-# 2008  2009  2010  2011  2012  2013  2014  2015  2016  2017  2018  2019 
-# 37044 29988 26208 20720 29988 35252 42728 37520 29400 29512 21840 29092
+# 1974   1975   1976   1977   1978   1979   1980   1981   1982   1983   1984   1985   1986   1987   1988   1989   1990 
+# 27272  68768  80360 121968 130984 114296 105784  96600 123032 115514 101136 117072 112948  92838  87976  97766  91128 
+# 1991   1992   1993   1994   1995   1996   1997   1998   1999   2000   2001   2002   2003   2004   2005   2006   2007 
+# 89992  83592 121620 118608 111028  95358 121406 114804 132922 139728 144634 145488 124824 144424 141512  61758  95086 
+# 2008   2009   2010   2011   2012   2013   2014   2015   2016   2017   2018   2019   2020   2021 
+# 121688 112868 100836 102174 109180 118350 127494 130564 131464 134368 103376 116256 145496 110874 
+
+n_country_y <- iss_samp %>% 
+  group_by(country,year) %>% 
+  summarise(n = n())
+
+
 
 #iss_m1$locality_id #this is the unique site identifier
 
-iss_m1 <- iss_m1[which(iss_m1$day_of_year < 334),] ### dropping the observations outside of the July-November window
 
 # ISS data to bind --------------------------------------------------------
 
