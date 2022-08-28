@@ -5,5 +5,7 @@
 **arch/
 output/
 **.exe
-
+data/species_stan_data_2019/
+data/species_stan_data/
+figures/
 
