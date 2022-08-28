@@ -75,7 +75,7 @@ transformed parameters {
    
    phi = 1/sqrt(sdnoise);
  
-  alpha = sdalpha*alpha_raw;// + beta_size*site_size;
+  alpha = sdalpha*alpha_raw + ALPHA1;// + beta_size*site_size;
   B = sdyear_gam*B_raw;
   year_effect = sdyear*year_effect_raw;
   
@@ -93,31 +93,31 @@ transformed parameters {
 
   for(i in 1:ncounts){
       
-    E[i] = ALPHA1 + year_pred[year_raw[i],strat[i]] + alpha[site[i]] + year_effect[year_raw[i]] + season_pred[date[i]];
+    E[i] = year_pred[year_raw[i],strat[i]] + alpha[site[i]] + year_effect[year_raw[i]] + season_pred[date[i]];
   }
   
   }
   
   
 model { 
-  sdnoise ~ student_t(3,0,3); //prior on scale of extra Poisson log-normal variance
+  sdnoise ~ student_t(3,0,5); //prior on scale of extra Poisson log-normal variance
   sdyear ~ normal(0,0.2); //prior on scale of annual fluctuations - 
   // above is informative so that 95% of the prior includes yearly fluctuations fall
   // between 33% decrease and a 50% increase
   sdalpha ~ student_t(3,0,3); //prior on scale of site level variation
-  sdyear_gam ~ student_t(3,0,1); //prior on sd of gam hyperparameters
-  sdyear_gam_strat ~ gamma(2,4);//boundary avoiding informative prior 
+  sdyear_gam ~ student_t(10,0,1); //prior on sd of gam hyperparameters
+  sdyear_gam_strat ~ gamma(2,4);//boundary avoiding mildly informative prior 
  //nu ~ gamma(2,0.1); // prior on df for t-distribution of heavy tailed site-effects from https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
   sdseason ~ student_t(3,0,1);//variance of GAM parameters
   B_season_raw ~ std_normal();//GAM parameters
   ALPHA1 ~ student_t(3,0,1);// overall species intercept 
  
   count ~ neg_binomial_2_log(E,phi); //vectorized count likelihood
-  alpha_raw ~ student_t(3,0,1); // fixed site-effects
+  alpha_raw ~ student_t(3,0,1); // random site-effects
   B_raw ~ std_normal();// prior on GAM hyperparameters
   year_effect_raw ~ std_normal(); //prior on ▲annual fluctuations
   sum(year_effect_raw) ~ normal(0,0.001*nyears);//sum to zero constraint on year-effects
-  sum(alpha_raw) ~ normal(0,0.001*nsites);//sum to zero constraint on site-effects
+  //sum(alpha_raw) ~ normal(0,0.001*nsites);//sum to zero constraint on site-effects
 
  
 
@@ -151,8 +151,8 @@ generated quantities {
             
         //a stratum-scaling component that tracks the alphas for sites in stratum
         for(j in 1:nsites_strat[s]){
-          atmp[j] = exp(ALPHA1 + year_pred[y,s] + year_effect[y] + seas_max + alpha[sites[j,s]]);
-          atmp_smo[j] = exp(ALPHA1 + year_pred[y,s] + seas_max + 0.5*(sdyear^2) + alpha[sites[j,s]]);
+          atmp[j] = exp(year_pred[y,s] + year_effect[y] + seas_max + alpha[sites[j,s]]);
+          atmp_smo[j] = exp(year_pred[y,s] + seas_max + 0.5*(sdyear^2) + alpha[sites[j,s]]);
         }
         n[s,y] = mean(atmp);
         nsmooth[s,y] = mean(atmp_smo);
@@ -161,8 +161,8 @@ generated quantities {
   
     for(y in 1:nyears){
 
-      N[y] = exp(ALPHA1 + Y_pred[y] + year_effect[y] + seas_max + 0.5*(sdalpha^2) );
-      NSmooth[y] = exp(ALPHA1 + Y_pred[y] + seas_max + 0.5*(sdyear^2) + 0.5*(sdalpha^2) );
+      N[y] = exp(ALPHA1 + Y_pred[y] + year_effect[y] + seas_max  );
+      NSmooth[y] = exp(ALPHA1 + Y_pred[y] + seas_max + 0.5*(sdyear^2)  );
       
     }
     

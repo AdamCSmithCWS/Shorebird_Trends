@@ -25,8 +25,9 @@ fullrun <- foreach(sp = sps[c(11,14)],
     
 # for(sp in sps[c(1:4)]){
   library(cmdstanr)
-  load(paste0("data/species_stan_data/",sp,"_stan_data.RData"))
-  species_f <- gsub(pattern = " ",sp,replacement = "_")
+  load(paste0("data/species_stan_data/",sp,"_2021_stan_data.RData"))
+  
+  species_f <- gsub(pattern = "'",gsub(pattern = " ",sp,replacement = "_"),replacement = "")
   
 output_dir <- "output/"
 out_base <- paste0(species_f,"_NB")
@@ -38,7 +39,7 @@ print(paste("beginning",sp,Sys.time()))
 
 
 ## compile model
-model <- cmdstan_model(mod.file)
+model <- cmdstan_model(mod.file, stanc_options = list("O1"))
 
 if(two_seasons){
   init_def <- function(){ list(alpha_raw = rnorm(stan_data$nsites,0,0.1),
@@ -82,8 +83,8 @@ stanfit <- model$sample(
   iter_warmup=1000,
   parallel_chains = 3,
   #pars = parms,
-  adapt_delta = 0.95,
-  max_treedepth = 14,
+  adapt_delta = 0.99,
+  max_treedepth = 15,
   seed = 123,
   init = init_def,
   output_dir = output_dir,
@@ -97,7 +98,7 @@ save(list = c("stanfit",
               "strats_dts",
               "strat_regions",
               "mod.file"),
-     file = paste0(output_dir,"/",out_base,"_fit.RData"))
+     file = paste0(output_dir,"/",out_base,"_2021_fit.RData"))
 
 
 }#end modeling loop

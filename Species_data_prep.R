@@ -19,12 +19,6 @@ sp_groups <- read.csv("data/Species_list.csv")
 # removing Alaska, NWT, and Hawaii ----------------------------------------
 
  
- ssData <- filter(ssData,StateProvince != "US-HI")
- ssData <- filter(ssData,StateProvince != "US-AK")
- ssData <- filter(ssData,StateProvince != "NT")
- 
- 
-
  
  # generate equal-area grid stratification and neighbourhoods --------------------------------------
  
@@ -286,10 +280,10 @@ mean_counbts_year = ggplot(data = dts,aes(x = year,y = count+1,colour = Region))
   labs(title = sp)+
   facet_wrap(facets = ~strat,nrow = 8,ncol = 5,scales = "free_y")
 
-# pdf(paste0("Figures/",sp,"annual_counts ",grid_spacing/1000,".pdf"),
-#     width = 11,height = 8.5)
-# print(mean_counbts_year)
-# dev.off()
+pdf(paste0("Figures/",sp,"annual_counts_2021",grid_spacing/1000,".pdf"),
+    width = 11,height = 8.5)
+print(mean_counbts_year)
+dev.off()
 mean_counbts_year_out[[sp]] <- mean_counbts_year
 
 
@@ -474,7 +468,7 @@ save(list = c("stan_data",
               "noise_dist",
               "neighbours",
               "two_seasons"),
-     file = paste0("data/species_stan_data/",sp,"_stan_data.RData"))
+     file = paste0("data/species_stan_data/",sp,"_2021_stan_data.RData"))
 
 
 
@@ -488,7 +482,7 @@ save(list = c("stan_data",
  #print graphs
  
  
- pdf(paste0("Figures/","All_seasonal_counts ",grid_spacing/1000,".pdf"),
+ pdf(paste0("Figures/","All_seasonal_counts_2021",grid_spacing/1000,".pdf"),
      width = 11,height = 8.5)
  for(sp in sps){
    print(mean_counbts_doy_out[[sp]]+
@@ -500,7 +494,7 @@ save(list = c("stan_data",
  
  
  # maps
- pdf(file = paste0("Figures/","ALL_Strata_",grid_spacing/1000,".pdf"),
+ pdf(file = paste0("Figures/","ALL_Strata_2021_",grid_spacing/1000,".pdf"),
      height = 8.5,width = 11)
  for(sp in sps){
    print(ggp_out[[sp]]+
@@ -512,7 +506,7 @@ save(list = c("stan_data",
  
  
  
- pdf(paste0("Figures/","All_annual_counts ",grid_spacing/1000,".pdf"),
+ pdf(paste0("Figures/","All_annual_counts_2021",grid_spacing/1000,".pdf"),
      width = 11,height = 8.5)
  for(sp in sps){
    print(mean_counbts_year_out[[sp]]+
