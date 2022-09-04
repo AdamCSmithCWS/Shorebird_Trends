@@ -20,24 +20,28 @@ sps <- sp_groups$Species
 
 
 # Convergence Summary -----------------------------------------------------
-
-for(sp in sps[c(1:4)]){
+convergence_summary <- NULL
+for(sp in sps){
   
   load(paste0("data/species_stan_data/",sp,"_stan_data.RData"))
-  species_f <- gsub(pattern = " ",sp,replacement = "_")
+  species_f <- gsub(pattern = "'",gsub(pattern = " ",sp,replacement = "_"),replacement = "")
   
   output_dir <- "output/"
   out_base <- paste0(species_f,"_NB")
   
-load(paste0(output_dir,"/",out_base,"_fit.RData"))
+  if(file.exists(paste0(output_dir,"/",out_base,"_2021_fit.RData"))){
+load(paste0(output_dir,"/",out_base,"_2021_fit.RData"))
 
-summ <- stanfit$summary()
+summ <- stanfit$summary() %>% 
+  mutate(species = sp)
 
+convergence_summary <- bind_rows(convergence_summary,summ)
 
-
-
+write.csv(convergence_summary,"output/All_species_convergence_summary.csv")
+}
 
 }
+
 
 
 

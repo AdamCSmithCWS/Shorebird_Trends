@@ -15,6 +15,8 @@ cluster <- makeCluster(n_cores, type = "PSOCK")
 registerDoParallel(cluster)
 
 
+load("temp_rerun_list.RData")
+
 
 fullrun <- foreach(sp = sps[c(11,14)],
                    .packages = c("cmdstanr","tidyverse"),
@@ -79,7 +81,7 @@ if(two_seasons){
 stanfit <- model$sample(
   data=stan_data,
   refresh=200,
-  chains=3, iter_sampling=1000,
+  chains=3, iter_sampling=3000,
   iter_warmup=1000,
   parallel_chains = 3,
   #pars = parms,
@@ -111,5 +113,6 @@ stopCluster(cl = cluster)
 
 
 
+ summ <- stanfit$summary()
  
 
