@@ -73,7 +73,7 @@ gens <- gens %>% filter(Common_name %in% sps)
 
 
 FYYYY = 1980
-
+LYYYY <- 2021
 t1 = Sys.time()
 
 
@@ -85,7 +85,7 @@ output_dir <- "output"
 
 
 for(sp in sps){
-  load(paste0("data/species_stan_data/",sp,"_2021_stan_data.RData"))
+  load(paste0("data/species_stan_data/",sp,"_",LYYYY,"_stan_data.RData"))
   
   species_f <- gsub(pattern = "'",gsub(pattern = " ",sp,replacement = "_"),replacement = "")
   
@@ -94,12 +94,12 @@ for(sp in sps){
   csv_files <- paste0(out_base,"-",1:3,".csv")
   
 
-  if(file.exists(paste0(output_dir,"/",out_base,"_2021_fit.RData"))){
-    load(paste0(output_dir,"/",out_base,"_2021_fit.RData"))
+  if(file.exists(paste0(output_dir,"/",out_base,"_",LYYYY,"_fit.RData"))){
+    load(paste0(output_dir,"/",out_base,"_",LYYYY,"_fit.RData"))
 
     three_gen <- max(10,ceiling(gens[which(gens$Common_name == sp),"GenLength"]*3))
     #Three generation assessment time in COSEWIC report
-    y3g <- 2019-three_gen
+    y3g <- LYYYY-three_gen
     
     # CONSIDERATIONS ----------------------------------------------------------
     
@@ -604,7 +604,7 @@ for(sp in sps){
     
     t_NSmooth_80 <- ItoT(inds = NSmoothsamples,
                          start = 1980,
-                         end = 2019,
+                         end = LYYYY,
                          regions = NULL,
                          qs = 95,
                          sp = sp,
@@ -613,7 +613,7 @@ for(sp in sps){
     
     t_NSmooth_04 <- ItoT(inds = NSmoothsamples,
                          start = 2004,
-                         end = 2019,
+                         end = LYYYY,
                          regions = NULL,
                          qs = 95,
                          sp = sp,
@@ -631,7 +631,7 @@ for(sp in sps){
     
     t_NSmooth_3g <- ItoT(inds = NSmoothsamples,
                          start = y3g,
-                         end = 2019,
+                         end = LYYYY,
                          regions = NULL,
                          qs = 95,
                          sp = sp,
@@ -639,7 +639,7 @@ for(sp in sps){
     TRENDSout <- bind_rows(TRENDSout,t_NSmooth_3g)
     
     
-    syL3g = y3g-(2019-y3g)
+    syL3g = y3g-(LYYYY-y3g)
     syL3g = max(1980,syL3g)
     t_NSmooth_L3g <- ItoT(inds = NSmoothsamples,
                           start = syL3g,
@@ -657,7 +657,7 @@ for(sp in sps){
     
     tdif <- ItoTT_comparison(inds = NSmoothsamples,
                              starts = c(syear,y3g),
-                             ends = c(2019,2019),
+                             ends = c(LYYYY,LYYYY),
                              regions = NULL,#"hex_name",
                              qs = 95,
                              sp = sp,
@@ -668,7 +668,7 @@ for(sp in sps){
     
     tdif <- ItoTT_comparison(inds = NSmoothsamples,
                              starts = c(syL3g,y3g),
-                             ends = c(y3g,2019),
+                             ends = c(y3g,LYYYY),
                              regions = NULL,#"hex_name",
                              qs = 95,
                              sp = sp,
@@ -679,7 +679,7 @@ for(sp in sps){
     
     tdif <- ItoTT_comparison(inds = NSmoothsamples,
                              starts = c(syear,y3g),
-                             ends = c(y3g,2019),
+                             ends = c(y3g,LYYYY),
                              regions = NULL,#"hex_name",
                              qs = 95,
                              sp = sp,
@@ -725,16 +725,16 @@ for(sp in sps){
     #    
         stg <- c(rep("recent",three_gen+1),
                  rep("previous",three_gen))
-        nadd = length(syear:2019)-length(stg)
+        nadd = length(syear:LYYYY)-length(stg)
         if(nadd > 0){
           stg <- c(stg,rep("earlier",nadd))
         }
         if(nadd < 0){
-          stg <- stg[1:length(syear:2019)]
+          stg <- stg[1:length(syear:LYYYY)]
         }
 
 
-        stag <- data.frame(year = syear:2019,
+        stag <- data.frame(year = syear:LYYYY,
                            stage = rev(stg))
     #     
     #     
@@ -852,14 +852,14 @@ for(sp in sps){
     # Continental Smooth spaghetti plot ---------------------------------------
       #  indicesNSmooth$year = indicesNSmooth$year + (syear-1)
 
-        set.seed(2019)
+        set.seed(LYYYY)
         r_draws <- sample(size = 100,x = 1:max(NSmoothsamples$.draw))
         spg_trajs <- NSmoothsamples %>% filter(.draw %in% r_draws) %>%
           mutate(draw_f = factor(.draw))
 
         lev = spg_trajs %>%
           ungroup() %>%
-          filter(year == 2019) %>%
+          filter(year == LYYYY) %>%
           select(draw_f,.value) %>%
           mutate(midp = log(.value)) %>%
           select(draw_f,midp)
@@ -871,7 +871,7 @@ for(sp in sps){
           geom_ribbon(aes(ymin = lci,ymax = uci),alpha = 0.25)+
           geom_line(size =2)+
           labs(title = paste(sp,"_Random selection of 100 posterior draws of survey-wide trajectories"),
-               subtitle = "Colour of each posterior draw reflects the value in 2019, demonstrating similar smooths across draws")+
+               subtitle = "Colour of each posterior draw reflects the value in LYYYY, demonstrating similar smooths across draws")+
           xlab("")+
           ylab("Modeled mean count")+
           theme_classic()+
@@ -1186,7 +1186,7 @@ for(sp in sps){
     
     t_nsmooth_strat_04 <- ItoT(inds = nsmoothsamples,
                                start = 2004,
-                               end = 2019,
+                               end = LYYYY,
                                regions = "hex_name",
                                qs = 95,
                                sp = sp,
@@ -1199,7 +1199,7 @@ for(sp in sps){
     
     t_nsmooth_strat_80 <- ItoT(inds = nsmoothsamples,
                                start = 1980,
-                               end = 2019,
+                               end = LYYYY,
                                regions = "hex_name",
                                qs = 95,
                                sp = sp,
@@ -1212,7 +1212,7 @@ for(sp in sps){
     
     t_nsmooth_strat_3g <- ItoT(inds = nsmoothsamples,
                                start = y3g,
-                               end = 2019,
+                               end = LYYYY,
                                regions = "hex_name",
                                qs = 95,
                                sp = sp,
@@ -1237,7 +1237,7 @@ for(sp in sps){
     
     t_nsmooth_reg_04 <- ItoT(inds = nsmoothsamples,
                              start = 2004,
-                             end = 2019,
+                             end = LYYYY,
                              regions = "Region",
                              qs = 95,
                              sp = sp,
@@ -1248,7 +1248,7 @@ for(sp in sps){
     
     t_nsmooth_reg_80 <- ItoT(inds = nsmoothsamples,
                              start = 1980,
-                             end = 2019,
+                             end = LYYYY,
                              regions = "Region",
                              qs = 95,
                              sp = sp,
@@ -1259,7 +1259,7 @@ for(sp in sps){
     
     t_nsmooth_reg_3g <- ItoT(inds = nsmoothsamples,
                              start = y3g,
-                             end = 2019,
+                             end = LYYYY,
                              regions = "Region",
                              qs = 95,
                              sp = sp,
@@ -1641,7 +1641,7 @@ dif_tplot <- ggplot(data = trend_difs_plot,aes(x = species,y = trend_dif))+
   geom_abline(slope = 0,intercept = 0,alpha = 0.7)+
   ylab("Difference between recent and earlier trends (%/year)")+
   xlab("")+
-  my_col_3+
+  my_col4+
   theme_classic()+
   theme(legend.position = "bottom")+
   coord_flip()
@@ -1662,7 +1662,7 @@ dif_tplot2 <- ggplot(data = trend_difs_plot2,aes(x = species,y = trend_dif,colou
   geom_abline(slope = 0,intercept = 0,alpha = 0.7)+
   ylab("Difference between recent and earlier trends (%/year)")+
   xlab("")+
-  my_col_3+
+  my_col4+
   theme_classic()+
   theme(legend.position = "bottom")+
   coord_flip()
@@ -1682,7 +1682,7 @@ dif_tplot3 <- ggplot(data = trend_difs_plot3,aes(x = species,y = trend_dif,colou
   geom_abline(slope = 0,intercept = 0,alpha = 0.7)+
   ylab("Difference between recent and earlier trends (%/year)")+
   xlab("")+
-  my_col_3+
+  my_col4+
   theme_classic()+
   theme(legend.position = "bottom")+
   coord_flip()
