@@ -10,52 +10,55 @@ sps = unique(sps1$Species)
 
 
 ### only need running once
-# library(auk)
-# library(archive)
-#
-# archive_extract("data/eBird/tar/ebd_sampling_relJul-2022.tar",dir = "data/eBird")
-#  archive_extract("data/eBird/tar/ebd_US_relJul-2022.tar",dir = "data/eBird/US")
-#  #untar("data/eBird/tar/ebd_CA_relJul-2022.tar",exdir = "data/eBird/CA")
-#  archive_extract("data/eBird/tar/ebd_CA_relJul-2022.tar",dir = "data/eBird/CA")
-#  gunzip("data/eBird/CA/ebd_CA_relJul-2022.txt.gz")
-#  gunzip("data/eBird/US/ebd_US_relJul-2022.txt.gz")
-#  gunzip("data/eBird/ebd_sampling_relJul-2022.txt.gz")
-#  
+library(auk)
+library(archive)
+library(R.utils)
+library(tidyverse)
+
+# archive_extract("data/ebd_CA_smp_relDec-2024.tar",dir = "data/eBird")
+#  archive_extract("data/ebd_US_smp_relDec-2024.tar",dir = "data/eBird")
+# 
+#   gunzip("data/eBird/ebd_CA_relDec-2024.txt.gz")
+#  gunzip("data/eBird/ebd_US_relDec-2024.txt.gz")
+#  gunzip("data/eBird/ebd_CA_relDec-2024_sampling.txt.gz")
+#  gunzip("data/eBird/ebd_US_relDec-2024_sampling.txt.gz")
+
+  
 
 # 
-# iss <- NULL
-# iss_samp <- NULL
+iss <- NULL
+iss_samp <- NULL
 # 
-# for(rr in c("CA","US")){
-#   data_dir <- paste0("data/eBird/",rr)
-#   auk::auk_set_ebd_path(data_dir,overwrite = T)
-#   out_sampling <- file.path(data_dir, paste0("ebd_",rr,"_ISS_sampling.txt"))
-#   out_ebd <- file.path(data_dir, paste0("ebd_",rr,"_ISS.txt"))
-#   #  
-# ebd_filters <- auk_ebd(file = paste0("data/eBird/",rr,"/ebd_",rr,"_relJul-2022.txt"),
-#                        file_sampling = "data/eBird/ebd_sampling_relJul-2022.txt",
-#                        sep = "\t") %>% 
-#   auk_species(species = sps) %>% 
-#   auk_date(date = c("*-07-01", "*-11-30")) %>% # fall surveys only
-#   auk_protocol(protocol = c("International Shorebird Survey (ISS)")) %>% # restrict to the ISS protocol
-#     auk_filter(file = out_ebd, 
-#                file_sampling = out_sampling,
-#                overwrite = TRUE)
-# 
-# 
-# 
-# 
-# iss_tmp = read_ebd(out_ebd)
-# 
-# iss_samp_tmp = read_sampling(out_sampling)
-# 
-# iss <- bind_rows(iss,iss_tmp)
-# iss_samp <- bind_rows(iss_samp,iss_samp_tmp)
-# 
-# }
-# 
-# save(list = c("iss","iss_samp"),
-#      file = "data/all_iss_eBird.RData")
+for(rr in c("CA","US")){
+  data_dir <- paste0("data/eBird")
+  auk::auk_set_ebd_path(data_dir,overwrite = T)
+  out_sampling <- file.path(data_dir, paste0("ebd_",rr,"_ISS_sampling.txt"))
+  out_ebd <- file.path(data_dir, paste0("ebd_",rr,"_ISS.txt"))
+  #
+ebd_filters <- auk_ebd(file = paste0("data/eBird/ebd_",rr,"_relDec-2024.txt"),
+                       file_sampling = paste0("data/eBird/ebd_",rr,"_relDec-2024_sampling.txt"),
+                       sep = "\t") %>%
+  auk_species(species = sps) %>%
+  auk_date(date = c("*-07-01", "*-11-30")) %>% # fall surveys only
+  auk_protocol(protocol = c("International Shorebird Survey (ISS)")) %>% # restrict to the ISS protocol
+    auk_filter(file = out_ebd,
+               file_sampling = out_sampling,
+               overwrite = TRUE)
+
+
+
+
+iss_tmp <- read_ebd(out_ebd)
+
+iss_samp_tmp <- read_sampling(out_sampling)
+
+iss <- bind_rows(iss,iss_tmp)
+iss_samp <- bind_rows(iss_samp,iss_samp_tmp)
+
+}
+
+save(list = c("iss","iss_samp"),
+     file = "data/all_iss_eBird.RData")
 
 # 
 # 
@@ -162,9 +165,16 @@ iss_m <- iss %>%
          time_observations_started = time_to_decimal(time_observations_started),
          # split date into year and day of year
          year = year(observation_date),
-         day_of_year = yday(observation_date)) %>% 
-  filter(.,year > 1973 & year < 2022) %>% 
-  left_join(.,iss_regs_j) %>% 
+         day_of_year = yday(observation_date),
+         program = ifelse(country_code == "US","ISS",NA),
+         program = ifelse(state_code == "CA-ON","OSS",program),
+         program = ifelse(state_code %in% c("CA-NS",
+                                            "CA-PE",
+                                            "CA-NB",
+                                            "CA-NL"),"ACSS",program),
+         program = ifelse(is.na(program),"Canada_other",program)) %>% 
+  filter(.,year > 1973 & year < 2025) %>% 
+  inner_join(.,iss_regs_j) %>% 
   arrange(observation_date,checklist_id)
 
 
@@ -199,21 +209,28 @@ all_y  # what happened in 2006?
 # 53032 57148 57288 61656 46592 52612 67928 49252 
 
 n_country_y <- iss_m %>% 
-  select(country,year,checklist_id) %>% 
+  select(program,year,checklist_id) %>% 
   distinct() %>% 
   ungroup() %>% 
-  group_by(country,year) %>% 
+  group_by(program,year) %>% 
   summarise(n = n(),
             .groups = "drop") %>% 
   arrange(year)
 
 tmpp <- ggplot(data = n_country_y,
-               aes(x = year, y = n,colour = country))+
-  geom_line()+
-  ylab("Number of ISS-protocol surveys in eBird")+
+               aes(x = year, y = n,colour = program))+
+  geom_line(alpha = 0.3)+
+  geom_point()+
+  geom_hline(yintercept = 0)+
+  labs(subtitle = "Number of ISS-protocol checklists in eBird, during fall (July 01 - November 30)")+
+  ylab("Number of checklists in eBird")+
   scale_y_continuous(limits = c(0,NA))
-print(tmpp)
 
+pdf("Number of unique checklist_ids from ISS protocols by program and year.pdf",
+    width = 7,
+    height = 6)
+print(tmpp)
+dev.off()
 
 # ISS data to bind --------------------------------------------------------
 
