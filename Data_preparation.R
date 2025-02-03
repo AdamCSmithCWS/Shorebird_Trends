@@ -15,6 +15,10 @@ library(archive)
 library(R.utils)
 library(tidyverse)
 
+
+# unzipping the downloaded EBD datsets for Canada and US ------------------
+
+
 # archive_extract("data/ebd_CA_smp_relDec-2024.tar",dir = "data/eBird")
 #  archive_extract("data/ebd_US_smp_relDec-2024.tar",dir = "data/eBird")
 # 
@@ -24,6 +28,10 @@ library(tidyverse)
 #  gunzip("data/eBird/ebd_US_relDec-2024_sampling.txt.gz")
 
   
+
+
+# Filtering to ISS-protocol and fall surveys ------------------------------
+
 
 # 
 iss <- NULL
