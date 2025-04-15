@@ -32,7 +32,9 @@ library(tidyverse)
 
 # Filtering to ISS-protocol and fall surveys ------------------------------
 
+re_filter_ebird_full_data <- FALSE
 
+if(re_filter_ebird_full_data){
 # 
 iss <- NULL
 iss_samp <- NULL
@@ -43,20 +45,24 @@ for(rr in c("CA","US")){
   out_sampling <- file.path(data_dir, paste0("ebd_",rr,"_ISS_sampling.txt"))
   out_ebd <- file.path(data_dir, paste0("ebd_",rr,"_ISS.txt"))
   #
-ebd_filters <- auk_ebd(file = paste0("data/eBird/ebd_",rr,"_relDec-2024.txt"),
-                       file_sampling = paste0("data/eBird/ebd_",rr,"_relDec-2024_sampling.txt"),
-                       sep = "\t") %>%
-  auk_species(species = sps) %>%
-  auk_date(date = c("*-07-01", "*-11-30")) %>% # fall surveys only
-  auk_protocol(protocol = c("International Shorebird Survey (ISS)")) %>% # restrict to the ISS protocol
-    auk_filter(file = out_ebd,
-               file_sampling = out_sampling,
-               overwrite = TRUE)
+# ebd_filters <- auk_ebd(file = paste0("data/eBird/ebd_",rr,"_relDec-2024.txt"),
+#                        file_sampling = paste0("data/eBird/ebd_",rr,"_relDec-2024_sampling.txt"),
+#                        sep = "\t") %>%
+#   auk_species(species = sps) %>%
+#   auk_date(date = c("*-07-01", "*-11-30")) %>% # fall surveys only
+#   auk_protocol(protocol = c("International Shorebird Survey (ISS)")) %>% # restrict to the ISS protocol
+#   #auk_unique(checklists_only = TRUE) %>% 
+#     auk_filter(file = out_ebd,
+#                file_sampling = out_sampling,
+#                overwrite = TRUE)
 
 
 
 
-iss_tmp <- read_ebd(out_ebd)
+iss_tmp1 <- read_ebd(out_ebd)
+
+iss_tmp <- auk_unique(iss_tmp1, checklists_only = TRUE)
+
 
 iss_samp_tmp <- read_sampling(out_sampling)
 
@@ -67,7 +73,7 @@ iss_samp <- bind_rows(iss_samp,iss_samp_tmp)
 
 save(list = c("iss","iss_samp"),
      file = "data/all_iss_eBird.RData")
-
+}
 # 
 # 
 # ebd_filters <- ebd %>% 
@@ -94,6 +100,10 @@ iss <- iss %>%
   filter(!state %in% c("Alaska","Hawaii",
                        "Northwest Territories"))
 
+iss_samp <- iss_samp %>% 
+  filter(!state %in% c("Alaska","Hawaii",
+                       "Northwest Territories"))
+
 # fitting to strata - geographic overlay ----------------------------------
 map <- read_sf(dsn = "data",
                layer ="region_polygons")
@@ -105,51 +115,72 @@ st_crs(map)
 #                         "longitude")])
 
 
-iss_obs <- unique(iss[,c("locality","locality_id",
+iss_obs <- unique(iss_samp[,c("locality","locality_id",
+                              "country_code","state_code",
                               "latitude",
                               "longitude")])
 
 iss_obs = st_as_sf(iss_obs,coords = c("longitude","latitude"), crs = 4326)
 
+
+
+# Checking for very close sites that have different names -----------------
+iss_obs_dist <- iss_obs %>% 
+  st_transform(crs = 4087) # WGS 84 World Equidistant Cylindrical
+
+iss_distmat <- as.matrix(units::drop_units(sf::st_distance(iss_obs_dist)))
+
+for(j in 1:nrow(iss_obs)){
+  js <- which(iss_distmat[j,] < 200)
+  iss_obs[j,"n_near"] <- length(js)
+  iss_obs[j,"locality_id_LT_220m"] <- paste(unname(unlist(st_drop_geometry(iss_obs[js,"locality_id"]))),collapse = "-")
+  iss_obs[j,"locality_LT_220m"] <- paste(unname(unlist(st_drop_geometry(iss_obs[js,"locality"]))),collapse = "-")
+}
+
+
+
+
+
 iss_obs_regs <- st_join(iss_obs, map, join = st_nearest_feature)
 
 iss_regs_j <- iss_obs_regs %>% 
   as.data.frame() %>% 
-  select(locality_id,Region,Region_FR) %>% 
+  select(locality,locality_id,Region,Region_FR,n_near,locality_id_LT_220m,locality_LT_220m) %>% 
   distinct()
 
 
-iss_samp2 <- iss %>% 
-  select(checklist_id,
-         country,
-         country_code,
-         state,
-         state_code,
-         bcr_code,
-         locality,
-         locality_id,
-         locality_type,
-         latitude,
-         longitude,
-         observation_date,
-         time_observations_started,
-         #observer_id,
-         #sampling_event_identifier,
-         protocol_code,
-         protocol_type,
-         project_code,
-         duration_minutes,
-         effort_distance_km,
-         effort_area_ha,
-         number_observers) %>% 
-  distinct()
 
+ iss_samp <- iss_samp %>% 
+   select(checklist_id,
+          country,
+          country_code,
+          state,
+          state_code,
+          bcr_code,
+          locality,
+          locality_id,
+          locality_type,
+          latitude,
+          longitude,
+          observation_date,
+          time_observations_started,
+          #observer_id,
+          #sampling_event_identifier,
+          protocol_code,
+          protocol_type,
+          project_code,
+          duration_minutes,
+          effort_distance_km,
+          effort_area_ha,
+          number_observers) %>% 
+   distinct()
 
-# iss_samp <- inner_join(iss_samp,iss_obs_regs[,c("locality_id","locality","Region","Region_FR")])
+ length(unique(iss_samp$checklist_id))
+ 
 
-
+  
 # Zero-fill manual --------------------------------------------------------
-iss_s2 <- expand_grid(iss_samp2,sps) #making complete list of checklists and species
+iss_s2 <- expand_grid(iss_samp,sps) #making complete list of checklists and species
 iss_s2 <- mutate(iss_s2,common_name = sps)
 
 # function to convert time observation to hours since midnight
@@ -162,11 +193,9 @@ time_to_decimal <- function(x) {
 # clean up variables and further filtering to 1974 -
 iss_m <- iss %>% 
   select(checklist_id,common_name,observation_count) %>% 
+  filter(observation_count != "X") %>% 
   full_join(.,iss_s2) %>% 
   mutate(common_name = ifelse(!is.na(common_name), common_name,sps),
-         # convert X to NA
-         observation_count = if_else(observation_count == "X", 
-                                     NA_character_, observation_count),
          observation_count = as.integer(observation_count),
          observation_count = ifelse(!is.na(observation_count), observation_count,0),
          # convert time to decimal hours since midnight
@@ -183,10 +212,19 @@ iss_m <- iss %>%
          program = ifelse(is.na(program),"Canada_other",program)) %>% 
   filter(.,year > 1973 & year < 2025) %>% 
   inner_join(.,iss_regs_j) %>% 
-  arrange(observation_date,checklist_id)
+  arrange(observation_date,checklist_id,locality_id)
 
 
 
+# Check for surveys with no birds -----------------------------------------
+
+n_sp <- iss_m %>% 
+  group_by(checklist_id) %>% 
+  summarise(n_sp = n(),
+            sum_count = sum(observation_count),
+            .groups = "drop") %>% 
+  group_by(sum_count) %>% 
+  summarise(n_checklists = n())
 
 
 ### effort info in ISS is only common in the last ~10 years.
@@ -240,10 +278,15 @@ pdf("Number of unique checklist_ids from ISS protocols by program and year.pdf",
 print(tmpp)
 dev.off()
 
+
+# Not Approved ------------------------------------------------------------
+
+not_appr <- iss %>% filter(approved == FALSE)
+
 # ISS data to bind --------------------------------------------------------
 
 
-
+write_csv(iss,"full_iss_data.csv")
 
 
 ssData <- iss_m[,c("checklist_id",
@@ -325,9 +368,9 @@ library(tidyverse)
 library(ggforce)
 load("data/allShorebirdPrismFallCounts.RData")
 
-events <- ssData %>% select(SamplingEventIdentifier:Region) %>% 
+events <- ssData %>% select(-c(CommonName,ObservationCount)) %>% 
   distinct() %>% 
-  group_by(Country,StateProvince,SurveyAreaIdentifier,Region,YearCollected) %>% 
+  group_by(Country,StateProvince,SurveyAreaIdentifier,Region,YearCollected,SiteName) %>% 
   summarise(n_surveys = n()) %>% 
   ungroup() %>% 
   group_by(Region)
