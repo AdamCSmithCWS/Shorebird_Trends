@@ -7,7 +7,7 @@ acss <- readxl::read_xlsx("data/acss/ACSS data 1971-2023_15-10-2024.xlsx",
                                         rep("date",2),
                                         rep("numeric",7),
                                         "text")) %>% 
-  rename(checklist_id = `Survey code`,
+  rename(checklist_id = `Survey code`,  #renaming and mutating to match columns in eBird data
          common_name = Species,
          observation_count = OBcount,
          latitude = LATdec,
@@ -82,3 +82,8 @@ n_locality_id_gt1_coord <- bycoord$number_of_duplicates
 
 paste("There are ",length(which(n_locality_id_gt1_coord$n_duplicates > 0)),
       "Site codes with greater than 1 set of coordinates")
+
+
+# Unique list of coordinates for each locality_id -------------------------
+
+
