@@ -50,48 +50,35 @@ explore_duplicates <- function(df,
   return(retlist)
 }
 
-
-acss_unique_locality_id_province <- acss %>% 
-  select(locality_id,
-         state_code) %>% 
-  distinct() %>% 
-  arrange(locality_id) 
+byprov <- explore_duplicates(acss,
+                             x = "locality_id",
+                             y = "state_code")
+acss_unique_locality_id_province <- byprov$unique_combinations
 # counting the number of unique province values for each Site code
-n_locality_id_gt1_prov <- acss_unique_locality_id_province %>% 
-  group_by(locality_id) %>% 
-  summarise(n_provinces = n()) %>% 
-  arrange(-n_provinces)
+n_locality_id_gt1_prov <- byprov$number_of_duplicates
 
-paste("There are ",length(which(n_locality_id_gt1_prov$n_provinces > 1)),
+paste("There are ",length(which(n_locality_id_gt1_prov$n_duplicates > 0)),
       "Site codes with greater than 1 province assigned")
 
 # this table shows the unique combinations of Site code (locality_id) and SurveySite (locality)
-acss_unique_locality_locality_id <- acss %>% 
-  select(locality,
-         locality_id) %>% 
-  distinct() %>% 
-  arrange(locality_id)
+bylocality <- explore_duplicates(acss,
+                             x = "locality_id",
+                             y = "locality")
+acss_unique_locality_id_locality <- bylocality$unique_combinations
+n_locality_id_gt1_locality <- bylocality$number_of_duplicates
 
-n_locality_id_gt1_locality <- acss_unique_locality_locality_id %>% 
-  group_by(locality_id) %>% 
-  summarise(n_locality = n()) %>% 
-  arrange(-n_locality)
-
-paste("There are ",length(which(n_locality_id_gt1_locality$n_locality > 1)),
+paste("There are ",length(which(n_locality_id_gt1_locality$n_duplicates > 0)),
       "Site codes with greater than 1 SurveySite assigned")
 
 # this table shows the unique combinations of Site code (locality_id) and coordinates 
-acss_unique_locality_id_coord <- acss %>% 
-  select(locality_id,
-         latitude,longitude) %>% 
-  distinct() %>% 
-  arrange(locality_id)
 
 
-n_locality_id_gt1_coord <- acss_unique_locality_id_coord %>% 
-  group_by(locality_id) %>% 
-  summarise(n_coords = n()) %>% 
-  arrange(-n_coords)
+bycoord <- explore_duplicates(acss,
+                                 x = "locality_id",
+                                 y = c("latitude","longitude"))
+acss_unique_locality_id_coord <- bycoord$unique_combinations
+n_locality_id_gt1_coord <- bycoord$number_of_duplicates
 
-paste("There are ",length(which(n_locality_id_gt1_coord$n_coords > 1)),
+
+paste("There are ",length(which(n_locality_id_gt1_coord$n_duplicates > 0)),
       "Site codes with greater than 1 set of coordinates")
