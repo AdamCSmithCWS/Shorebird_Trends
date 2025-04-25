@@ -3,6 +3,7 @@
 library(tidyverse)
 library(patchwork)
 library(sf)
+library(readxl)
 
 # 2019 data ---------------------------------------------------------------
 
@@ -209,12 +210,57 @@ for(reg in c("Atlantic Canada","Ontario")){
 
 # Accessing data from NatureCounts ------------------------------------------------------
 
-library(naturecounts)
+library(naturecounts)  #YAuJpdBXsnnre7k
+
+#access <- nc_count(username = "adam.smith")
+
+#tmp <- meta_collections()
+
+re_download <- FALSE
+
+if(re_download){
+  my_data <- nc_data_dl(request_id = 256224, username = "adam.smith")
+  
+  saveRDS(my_data,"data/temp_shorebird_update.rds")
+}else{
+  my_data <- readRDS("data/temp_shorebird_update.rds")
+}
+
+
+unique_data <- my_data %>%
+  filter(collection == "PRISM-ACSS")
+
+hdrs <- read.table(file = "data/oss/prism-oss_field_names.txt")
+oss_data_nc_web <- read.csv(file = "data/oss/prism-oss_naturecounts_data.csv")
+acss_data_nc_web <- read.csv(file = "data/acss/prism-acss_naturecounts_data.csv")
 
 
 
+on2024 <- ssData %>% 
+  mutate(version = "v_2024") %>% 
+  filter(Region == "Ontario")
 
 
+on2019 <- dt2019 %>% 
+  filter(Region == "Ontario")
+
+on2024_nc <- oss_data_nc_web %>% 
+  filter(!is.na(YearCollected),
+         !is.na(MonthCollected),
+         !is.na(DayCollected)) %>% 
+  mutate(ObservationDate = lubridate::ymd(paste(YearCollected,MonthCollected,DayCollected,sep = "/")),
+         doy = lubridate::yday(ObservationDate),
+         ObservationCount_new = ObservationCount,
+         SurveyAreaIdentifier = as.character(SurveyAreaIdentifier)) %>% 
+  select(SamplingEventIdentifier,Country,StateProvince,
+         SurveyAreaIdentifier,DecimalLatitude,DecimalLongitude,doy,
+         YearCollected,CommonName,ObservationCount_new) %>% 
+  rename_with(.fn = ~paste0(.x,"_2024"))
+
+tst_jn <- on2019 %>% 
+  inner_join(on2024_nc,
+             by = c("SamplingEventIdentifier" = "SamplingEventIdentifier_2024",
+                    "CommonName" = "CommonName_2024"))
 
 
 

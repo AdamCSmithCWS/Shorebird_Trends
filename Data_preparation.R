@@ -1,5 +1,3 @@
-### compiling ISS data from eBird with OSS and ACSS data from naturecounts
-
 
 # species list from the last analysis - useful to filter down to the species likely to provide sufficient info to estimate trends
 sps1 = read.csv("data/species_list.csv")
@@ -10,8 +8,6 @@ sps = unique(sps1$Species)
 
 
 ### only need running once
-library(auk)
-library(archive)
 library(R.utils)
 library(tidyverse)
 
@@ -36,6 +32,10 @@ re_filter_ebird_full_data <- FALSE
 
 if(re_filter_ebird_full_data){
 # 
+# 
+  library(auk)
+  library(archive)
+  
 iss <- NULL
 iss_samp <- NULL
 # 
@@ -96,13 +96,100 @@ library(sf)
 load("data/all_iss_eBird.RData")
 
 
+# replace ebird-ACSS data with local copy ---------------------------------
+# The ACSS data in ebird are missing many of the highest counts
+# These have presumably been flagged or removed by eBird reviewers
+# Untill this error gets corrected, replacing all ACSS data with a
+# local copy of the full database, supplied by Sarah Neima at Canadian
+# Wildlife Service. Shared via one-drive in email April 15, 2025
+#
+
+
+acss <- readxl::read_xlsx("data/acss/ACSS data 1971-2023_15-10-2024.xlsx",
+                          col_types = c(rep("guess",16),
+                                        rep("date",2),
+                                        rep("numeric",7),
+                                        "text")) %>% 
+  rename(checklist_id = `Survey code`,
+         common_name = Species,
+         observation_count = OBcount,
+         latitude = LATdec,
+         longitude = LONGdec,
+         observation_date = Date,
+         time_observations_started = `Time Start`,
+         time_observations_ended = `Time End`,
+         locality = `SurveySite`,
+         locality_id = `Site code`) %>% 
+  mutate(country_code = "CA",
+         country = "Canada",
+         state_code = paste0("CA-",Province),
+         observer_id = paste0("OB_",as.integer(factor(`Primary surveyor`))),
+         protocol_type = "International Shorebird Survey (ISS)",
+         duration_minutes = as.numeric((time_observations_ended-time_observations_started))/60) %>% 
+  select(checklist_id,locality,locality_id,
+         observation_date,common_name,observation_count,
+         latitude,longitude,time_observations_started,
+         country_code,country,state_code,observer_id,protocol_type,duration_minutes)
+
+
+acss_unique_locality_id_province <- acss %>% 
+  select(locality_id,
+         state_code) %>% 
+  distinct() %>% 
+  arrange(locality_id) 
+
+which_locality_id_gt1_prov <- acss_unique_locality_id_province %>% 
+  group_by(locality_id) %>% 
+  summarise(n_provinces = n()) %>% 
+  arrange(-n_provinces)
+
+
+
+acss_unique_locality_locality_id <- acss %>% 
+  select(locality,
+         locality_id) %>% 
+  distinct() %>% 
+  arrange(locality_id)
+
+which_locality_id_gt1_locality <- acss_unique_locality_locality_id %>% 
+  group_by(locality_id) %>% 
+  summarise(n_locality = n()) %>% 
+  arrange(-n_locality)
+
+
+
+acss_unique_locality_id_coord <- acss %>% 
+  select(locality_id,
+         latitude,longitude) %>% 
+  distinct() %>% 
+  arrange(locality_id)
+
+
+which_locality_id_gt1_coord <- acss_unique_locality_id_coord %>% 
+  group_by(locality_id) %>% 
+  summarise(n_coords = n()) %>% 
+  arrange(-n_coords)
+
+
+
+
 iss <- iss %>% 
   filter(!state %in% c("Alaska","Hawaii",
-                       "Northwest Territories"))
+                       "Northwest Territories",
+                       "New Brunswick",  # removing all atlantic province data to replace with ACSS
+                       "Nova Scotia",
+                       "Prince Edward Island",
+                       "Newfoundland and Labrador"))
 
 iss_samp <- iss_samp %>% 
   filter(!state %in% c("Alaska","Hawaii",
-                       "Northwest Territories"))
+                       "Northwest Territories",
+                       "New Brunswick",   # removing all atlantic province data to replace with ACSS
+                       "Nova Scotia",
+                       "Prince Edward Island",
+                       "Newfoundland and Labrador"))
+
+
 
 # fitting to strata - geographic overlay ----------------------------------
 map <- read_sf(dsn = "data",
