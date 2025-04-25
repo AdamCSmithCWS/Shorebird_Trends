@@ -132,45 +132,6 @@ acss <- readxl::read_xlsx("data/acss/ACSS data 1971-2023_15-10-2024.xlsx",
          country_code,country,state_code,observer_id,protocol_type,duration_minutes)
 
 
-acss_unique_locality_id_province <- acss %>% 
-  select(locality_id,
-         state_code) %>% 
-  distinct() %>% 
-  arrange(locality_id) 
-
-which_locality_id_gt1_prov <- acss_unique_locality_id_province %>% 
-  group_by(locality_id) %>% 
-  summarise(n_provinces = n()) %>% 
-  arrange(-n_provinces)
-
-
-
-acss_unique_locality_locality_id <- acss %>% 
-  select(locality,
-         locality_id) %>% 
-  distinct() %>% 
-  arrange(locality_id)
-
-which_locality_id_gt1_locality <- acss_unique_locality_locality_id %>% 
-  group_by(locality_id) %>% 
-  summarise(n_locality = n()) %>% 
-  arrange(-n_locality)
-
-
-
-acss_unique_locality_id_coord <- acss %>% 
-  select(locality_id,
-         latitude,longitude) %>% 
-  distinct() %>% 
-  arrange(locality_id)
-
-
-which_locality_id_gt1_coord <- acss_unique_locality_id_coord %>% 
-  group_by(locality_id) %>% 
-  summarise(n_coords = n()) %>% 
-  arrange(-n_coords)
-
-
 
 
 iss <- iss %>% 
@@ -206,6 +167,9 @@ iss_obs <- unique(iss_samp[,c("locality","locality_id",
                               "country_code","state_code",
                               "latitude",
                               "longitude")])
+
+
+
 
 iss_obs = st_as_sf(iss_obs,coords = c("longitude","latitude"), crs = 4326)
 

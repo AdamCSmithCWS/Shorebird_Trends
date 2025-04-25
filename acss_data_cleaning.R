@@ -1,6 +1,7 @@
 
 library(readxl)
 library(tidyverse)
+source("functions/explore_duplicates.R")
 
 acss <- readxl::read_xlsx("data/acss/ACSS data 1971-2023_15-10-2024.xlsx",
                           col_types = c(rep("guess",16),
@@ -28,27 +29,6 @@ acss <- readxl::read_xlsx("data/acss/ACSS data 1971-2023_15-10-2024.xlsx",
          latitude,longitude,time_observations_started,
          country_code,country,state_code,observer_id,protocol_type,duration_minutes)
 
-
-explore_duplicates <- function(df,
-                               x = "",
-                               y = ""){
-  df1 <- df %>% 
-    select(matches(c(x,y))) %>% 
-    distinct() %>% 
-    arrange(.data[[x]]) 
-  
-  df2 <- df1 %>% 
-    group_by(.data[[x]]) %>% 
-    summarise(n_duplicates = n()-1) %>% 
-    arrange(-n_duplicates)
-  
-  retlist <- list(unique_combinations = df1,# this table shows the unique combinations of x and y
-                  number_of_duplicates = df2) 
-  # the second table shows the number of duplicates of x for every unique values of y
-  # n_duplicates is 0 for any value of x that has only one unique value of y
-  # n_duplicates is >0 for any value of x that has >1 unique value.
-  return(retlist)
-}
 
 byprov <- explore_duplicates(acss,
                              x = "locality_id",
