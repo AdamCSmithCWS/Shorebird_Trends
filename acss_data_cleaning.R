@@ -84,6 +84,13 @@ paste("There are ",length(which(n_locality_id_gt1_coord$n_duplicates > 0)),
       "Site codes with greater than 1 set of coordinates")
 
 
-# Unique list of coordinates for each locality_id -------------------------
+# Unique list of coordinates for each acss locality_id -------------------------
 
+acss_unique_site_coord <- acss %>% 
+  arrange(observation_date) %>% #sorting by observation date oldest obs first
+  select(locality_id,locality,state_code,latitude,longitude) %>% 
+  slice_tail(n = 1,by = locality_id) #selects the most recent set of coordinates that come up in the dataset
+
+write_csv(acss_unique_site_coord,
+        "first_draft_coord_name_province_by_sitecode.csv")
 
