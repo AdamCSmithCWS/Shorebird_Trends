@@ -108,11 +108,12 @@ iss <- iss %>%
 #
 
 
-acss <- readxl::read_xlsx("data/acss/ACSS data 1971-2023_15-10-2024.xlsx",
+acss <- readxl::read_xlsx("data/ACSS data 1971-2023_15-10-2024.xlsx",
                           col_types = c(rep("guess",16),
                                         rep("date",2),
                                         rep("numeric",7),
                                         "text")) %>% 
+  filter(MM > 06 & MM < 12) %>% 
   rename(checklist_id = `Survey code`,  #renaming and mutating to match columns in eBird data
          common_name = Species,
          observation_count = OBcount,

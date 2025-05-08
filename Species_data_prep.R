@@ -72,7 +72,7 @@ sp_groups <- read.csv("data/Species_list.csv")
  ssData <- left_join(ssData,strats,by = "SurveyAreaIdentifier")
  ### hex_name is now the new stratification
  
- save(list = c("poly_grid"),file = "data/hexagon_grid.RData")
+ #save(list = c("poly_grid"),file = "data/hexagon_grid.RData")
  
  save(list = c("ssData"),
       file = "Data/full_observation_dataset.Rdata")
@@ -101,7 +101,7 @@ sp_groups <- read.csv("data/Species_list.csv")
 
 
  
-for(sp in sps){
+for(sp in sps[-c(1:16)]){
 #sp = sps[11]
 FYYYY = 1980
 LYYYY = max(ssData$YearCollected)
@@ -145,15 +145,10 @@ nyrs_site <- dts %>%
             fyear = min(YearCollected),
             lyear = max(YearCollected))
 
-#number of sites with > 5 year span by region
-nsites_w5 <- nyrs_site %>% 
-  filter(span_years > 5) %>%  
-  group_by(Region) %>% 
-  summarise(nobs = n()) 
 
 min_nyears <- 2
 minspan <- 10
-#sites with > 10 years of non-zero, observations
+#sites with > 2 years of non-zero, observations and > 10 year span of observations
 sites_keep <- nyrs_site[which(nyrs_site$span_years >= minspan,
                               nyrs_site$nyears >= min_nyears),"SurveyAreaIdentifier"]
 
@@ -263,7 +258,7 @@ mean_counbts_doy = ggplot(data = dts,aes(x = doy,y = count+1,colour = Region))+
   geom_point(position = position_jitter(width = 0.1,height = 0),alpha = 0.3)+
   geom_smooth()+
   labs(title = sp)+
-  facet_wrap(facets = ~strat,nrow = 8,ncol = 5,scales = "free_y")
+  facet_wrap(facets = ~strat,ncol = 5,scales = "free_y")
 
 
 mean_counbts_doy_out[[sp]] <- mean_counbts_doy
@@ -277,15 +272,16 @@ mean_counbts_doy_out[[sp]] <- mean_counbts_doy
 
 
 
+length(unique(dts$strat))
 
 mean_counbts_year = ggplot(data = dts,aes(x = year,y = count+1,colour = Region))+
   scale_y_log10()+
   geom_point(position = position_jitter(width = 0.1,height = 0),alpha = 0.3)+
   geom_smooth(method = "lm")+
   labs(title = sp)+
-  facet_wrap(facets = ~strat,nrow = 8,ncol = 5,scales = "free_y")
+  facet_wrap(facets = ~strat,ncol = 5,scales = "free_y")
 
-pdf(paste0("Figures/",sp,"annual_counts_2021",grid_spacing/1000,".pdf"),
+pdf(paste0("Figures/",sp,"annual_counts_2024.pdf"),
     width = 11,height = 8.5)
 print(mean_counbts_year)
 dev.off()
@@ -473,7 +469,7 @@ save(list = c("stan_data",
               "noise_dist",
               "neighbours",
               "two_seasons"),
-     file = paste0("data/species_stan_data/",sp,"_2021_stan_data.RData"))
+     file = paste0("data/species_stan_data/",sp,"_2024_stan_data.RData"))
 
 
 
@@ -487,9 +483,9 @@ save(list = c("stan_data",
  #print graphs
  
  
- pdf(paste0("Figures/","All_seasonal_counts_2021",grid_spacing/1000,".pdf"),
+ pdf(paste0("Figures/","All_seasonal_counts_2024.pdf"),
      width = 11,height = 8.5)
- for(sp in sps){
+ for(sp in sps[-c(1:16)]){
    print(mean_counbts_doy_out[[sp]]+
            labs(title = sp))
    
@@ -499,7 +495,7 @@ save(list = c("stan_data",
  
  
  # maps
- pdf(file = paste0("Figures/","ALL_Strata_2021_",grid_spacing/1000,".pdf"),
+ pdf(file = paste0("Figures/","ALL_Strata_2024.pdf"),
      height = 8.5,width = 11)
  for(sp in sps){
    print(ggp_out[[sp]]+
@@ -511,7 +507,7 @@ save(list = c("stan_data",
  
  
  
- pdf(paste0("Figures/","All_annual_counts_2021",grid_spacing/1000,".pdf"),
+ pdf(paste0("Figures/","All_annual_counts_2024.pdf"),
      width = 11,height = 8.5)
  for(sp in sps){
    print(mean_counbts_year_out[[sp]]+
