@@ -16,9 +16,7 @@ load("data/allShorebirdPrismFallCounts.RData")
 source("functions/neighbours_define_alt.r")
 
 sp_groups <- read.csv("data/Species_list.csv")
-# removing Alaska, NWT, and Hawaii ----------------------------------------
 
- 
  
  # generate equal-area grid stratification and neighbourhoods --------------------------------------
  
@@ -30,45 +28,52 @@ sp_groups <- read.csv("data/Species_list.csv")
  
  
  
- locat = system.file("maps",
-                     package="bbsBayes")
- map.file = "BBS_ProvState_strata"
+
+ prov_state = bbsBayes2::load_map("prov_state")
  
- prov_state = sf::read_sf(dsn = locat,
-                              layer = map.file)
+ orig_ss_regions <- map %>% 
+   select(Region) %>% 
+   st_transform(crs = laea)
  
- orig_ss_regions = sf::read_sf(dsn = "data",
-                               layer = "region_polygons")
- orig_ss_regions <- select(orig_ss_regions,Region)
- orig_ss_regions = st_transform(orig_ss_regions,crs = laea)
  
  # bbs_strata_proj = st_transform(bbs_strata_map,crs = 102003) #USA Contiguous albers equal area projection stanadard from ESRI - https://mgimond.github.io/Spatial/coordinate-systems-in-r.html
  
  prov_state = st_transform(prov_state,crs = laea)
  
  
- iss_sites = st_as_sf(all_sites,coords = c("DecimalLongitude","DecimalLatitude"), crs = 4326)
- iss_sites_lcc <- st_transform(iss_sites, laea)
- save(list = "iss_sites_lcc",
+ iss_sites = st_as_sf(all_sites,coords = c("DecimalLongitude","DecimalLatitude"), crs = 4326) #wgs84
+ iss_sites_laea <- st_transform(iss_sites, laea)
+ save(list = "iss_sites_laea",
       file = "Data/site_map.RData")
- bb = st_bbox(iss_sites_lcc) %>% 
-   st_as_sfc()
+ 
 
- grid_spacing <- 300000  # size of squares, in units of the CRS (i.e. meters for lae)
+
  
- poly_grid <- st_make_grid(bb, square = F, cellsize = c(grid_spacing, grid_spacing)) %>% # the grid, covering bounding box
-   st_sf() # 
- crd <- st_coordinates(st_centroid(poly_grid))
- poly_grid$hex_name <- paste(round(crd[,"X"]),round(crd[,"Y"]),sep = "_")
+ # bb = st_bbox(iss_sites_laea) %>% 
+ #   st_as_sfc()
+ # 
+ # grid_spacing <- 300000  # size of squares, in units of the CRS (i.e. meters for lae)
+ # 
+ # poly_grid <- st_make_grid(bb, square = F, cellsize = c(grid_spacing, grid_spacing)) %>% # the grid, covering bounding box
+ #   st_sf() # 
+ # crd <- st_coordinates(st_centroid(poly_grid))
+ # poly_grid$hex_name <- paste(round(crd[,"X"]),round(crd[,"Y"]),sep = "_")
+ # 
  
- iss_sites_lcc <- st_join(iss_sites_lcc, poly_grid, join = st_nearest_feature)
+ # load hexagon grid used in previous analyses -----------------------------
  
- strats <- iss_sites_lcc
+ load("data/hexagon_grid.RData")
+ 
+ 
+ iss_sites_laea <- st_join(iss_sites_laea, poly_grid, join = st_nearest_feature)
+ 
+ strats <- iss_sites_laea
  st_geometry(strats) <- NULL
  ssData <- left_join(ssData,strats,by = "SurveyAreaIdentifier")
  ### hex_name is now the new stratification
  
  save(list = c("poly_grid"),file = "data/hexagon_grid.RData")
+ 
  save(list = c("ssData"),
       file = "Data/full_observation_dataset.Rdata")
  
