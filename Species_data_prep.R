@@ -9,74 +9,42 @@ library(ggforce)
 # library(foreach)
 
 #load data
-load("data/allShorebirdPrismFallCounts.RData")
-
+#load("data/allShorebirdPrismFallCounts.RData")
+ssData <- readRDS("Data/ssData.rds")
+sps <- readRDS("Data/sps_list.rds")
+map <- readRDS("Data/regional_map.rds")
 #load spatial function to transform GeoBugs format to Stan
 #source("functions/mungeCARdata4stan.R")
 source("functions/neighbours_define_alt.r")
 
 sp_groups <- read.csv("data/Species_list.csv")
 
+ dir.create("data/species_stan_data")
+ # use the same equal-area grid stratification used in the 2019 analyses --------------------------------------
+ # load hexagon grid used in previous analyses -----------------------------
  
- # generate equal-area grid stratification and neighbourhoods --------------------------------------
+ poly_grid <- readRDS("hexagon_grid.rds")
  
- ### site-level model would be useful, but it implies a tremendous number of "trend" parameters that may cause some significant
+ ### someday, site-level model would be useful, but it implies a tremendous number of "trend" parameters that may cause some significant
  ### computational limits
  ### instead, etsablish an equal-area grid as a geographic stratification
- all_sites = ssData %>% distinct(SurveyAreaIdentifier,DecimalLatitude,DecimalLongitude)
  laea = st_crs("+proj=laea +lat_0=40 +lon_0=-95") # Lambert equal area
  
- 
+ iss_sites_laea <- readRDS("Data/site_map.rds")#loads site map in Lambert equal area projection
  
 
- prov_state = bbsBayes2::load_map("prov_state")
+ prov_state <- bbsBayes2::load_map("prov_state") %>% 
+   st_transform(prov_state,crs = laea)
+ 
  
  orig_ss_regions <- map %>% 
    select(Region) %>% 
    st_transform(crs = laea)
  
  
- # bbs_strata_proj = st_transform(bbs_strata_map,crs = 102003) #USA Contiguous albers equal area projection stanadard from ESRI - https://mgimond.github.io/Spatial/coordinate-systems-in-r.html
- 
- prov_state = st_transform(prov_state,crs = laea)
- 
- 
- iss_sites = st_as_sf(all_sites,coords = c("DecimalLongitude","DecimalLatitude"), crs = 4326) #wgs84
- iss_sites_laea <- st_transform(iss_sites, laea)
- save(list = "iss_sites_laea",
-      file = "Data/site_map.RData")
- 
-
 
  
- # bb = st_bbox(iss_sites_laea) %>% 
- #   st_as_sfc()
- # 
- # grid_spacing <- 300000  # size of squares, in units of the CRS (i.e. meters for lae)
- # 
- # poly_grid <- st_make_grid(bb, square = F, cellsize = c(grid_spacing, grid_spacing)) %>% # the grid, covering bounding box
- #   st_sf() # 
- # crd <- st_coordinates(st_centroid(poly_grid))
- # poly_grid$hex_name <- paste(round(crd[,"X"]),round(crd[,"Y"]),sep = "_")
- # 
- 
- # load hexagon grid used in previous analyses -----------------------------
- 
- load("data/hexagon_grid.RData")
- 
- 
- iss_sites_laea <- st_join(iss_sites_laea, poly_grid, join = st_nearest_feature)
- 
- strats <- iss_sites_laea
- st_geometry(strats) <- NULL
- ssData <- left_join(ssData,strats,by = "SurveyAreaIdentifier")
- ### hex_name is now the new stratification
- 
- #save(list = c("poly_grid"),file = "data/hexagon_grid.RData")
- 
- save(list = c("ssData"),
-      file = "Data/full_observation_dataset.Rdata")
- 
+
  
  source("functions/GAM_basis_function_mgcv.R")
 
@@ -101,7 +69,7 @@ sp_groups <- read.csv("data/Species_list.csv")
 
 
  
-for(sp in sps[-c(1:16)]){
+for(sp in sps){
 #sp = sps[11]
 FYYYY = 1980
 LYYYY = max(ssData$YearCollected)

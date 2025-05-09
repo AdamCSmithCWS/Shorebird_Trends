@@ -108,7 +108,7 @@ iss <- iss %>%
 #
 
 
-acss <- readxl::read_xlsx("data/ACSS data 1971-2023_15-10-2024.xlsx",
+acss <- readxl::read_xlsx("data/acss/ACSS data 1971-2023_15-10-2024.xlsx",
                           col_types = c(rep("guess",16),
                                         rep("date",2),
                                         rep("numeric",7),
@@ -436,9 +436,28 @@ ssData[which(ssData$Region == "Northeast Coastal" &
 table(ssData$Country,ssData$Region)
 
 
-save(list = c("ssData",
-              "sps",
-              "map"),file = "data/allShorebirdPrismFallCounts.RData")
+
+# Connecting sites to hexagon grid ----------------------------------------
+
+
+poly_grid <- readRDS("hexagon_grid.rds")
+laea = st_crs("+proj=laea +lat_0=40 +lon_0=-95") # Lambert equal area
+
+  all_sites = ssData %>% distinct(SurveyAreaIdentifier,DecimalLatitude,DecimalLongitude)
+  iss_sites = st_as_sf(all_sites,coords = c("DecimalLongitude","DecimalLatitude"), crs = 4326) #wgs84
+  iss_sites_laea <- st_transform(iss_sites, laea)
+  saveRDS(iss_sites_laea, "Data/site_map.rds")
+  
+  iss_sites_laea <- st_join(iss_sites_laea, poly_grid, join = st_nearest_feature)
+  
+  strats <- iss_sites_laea
+  st_geometry(strats) <- NULL
+  ssData <- left_join(ssData,strats,by = "SurveyAreaIdentifier")
+
+  saveRDS(ssData,"Data/ssData.rds")
+  saveRDS(sps,"Data/sps_list.rds")
+  saveRDS(map,"Data/regional_map.rds")
+  
 
 
 

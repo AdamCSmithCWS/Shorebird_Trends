@@ -7,12 +7,12 @@
 // Spatial and Spatio-temporal Epidemiology 31:100301.
 
 
-functions {
-  real icar_normal_lpdf(vector bb, int nsites, int[] node1, int[] node2) {
-    return -0.5 * dot_self(bb[node1] - bb[node2])
-      + normal_lpdf(sum(bb) | 0, 0.0001 * nsites); //soft sum to zero constraint on phi
+ functions {
+   real icar_normal_lpdf(vector bb, int ns, array[] int n1, array[] int n2) {
+     return -0.5 * dot_self(bb[n1] - bb[n2])
+       + normal_lpdf(sum(bb) | 0, 0.001 * ns); //soft sum to zero constraint on bb
+  }
  }
-}
 
 
 data {
@@ -32,23 +32,23 @@ data {
   
   //data for spatial iCAR among strata
   int<lower=1> N_edges;
-  int<lower=1, upper=nstrata> node1[N_edges];  // node1[i] adjacent to node2[i]
-  int<lower=1, upper=nstrata> node2[N_edges];  // and node1[i] < node2[i]
+  array[N_edges] int<lower=1, upper=nstrata> node1;  // node1[i] adjacent to node2[i]
+  array[N_edges] int<lower=1, upper=nstrata> node2;// and node1[i] < node2[i]
 
-  int<lower=0> count[ncounts];              // count observations
-  int<lower=1> strat[ncounts];              // strata indicators
-  int<lower=1> site[ncounts];              // site indicators
+  array[ncounts] int<lower=0> count;              // count observations
+  array[ncounts] int<lower=1> strat;              // strata indicators
+  array[ncounts] int<lower=1> site;              // site indicators
   //real year[ncounts];              // centered years
-  int<lower=1> year_raw[ncounts]; // year index
-  int<lower=1> date[ncounts];  // day indicator in the season
-  int<lower=1> seas_strat[ncounts];
+  array[ncounts] int<lower=1> year_raw; // year index
+  array[ncounts] int<lower=1> date;  // day indicator in the season
+  array[ncounts] int<lower=1> seas_strat;
 
   
   //indexes for re-scaling predicted counts within strata based on site-level intercepts
   int<lower=1> max_sites; //dimension 1 of sites matrix
-  int<lower=0> sites[max_sites,nstrata]; //matrix of which sites are in each stratum
-  int<lower=1> nsites_strat[nstrata]; //number of unique sites in each stratum
-  int<lower=1> seasons[nstrata,2]; //matrix of which strata have season pattern 1 or 2
+  array[max_sites,nstrata] int<lower=0> sites; //matrix of which sites are in each stratum
+  array[nstrata] int<lower=1> nsites_strat; //number of unique sites in each stratum
+  array[nstrata,2] int<lower=1> seasons; //matrix of which strata have season pattern 1 or 2
   
 }
 
@@ -64,7 +64,7 @@ parameters {
  real<lower=0> sdnoise;    // sd of over-dispersion
  real<lower=0> sdalpha;    // sd of site effects
   real<lower=0> sdyear;    // sd of year effects
-  real<lower=0> sdseason[2];    // sd of season effects
+  array[2] real<lower=0> sdseason;    // sd of season effects
   real<lower=0> sdyear_gam;    // sd of GAM coefficients
   real<lower=0> sdyear_gam_strat; //sd of strata level gams for each knot
   real ALPHA1; // overall intercept
@@ -145,10 +145,10 @@ model {
 
 generated quantities {
 
-  real<lower=0> N[nyears];
-  real<lower=0> NSmooth[nyears];
-  real<lower=0> n[nstrata,nyears];
-  real<lower=0> nsmooth[nstrata,nyears];
+  array[nyears] real<lower=0> N;
+  array[nyears] real<lower=0> NSmooth;
+  array[nstrata,nyears] real<lower=0> n;
+  array[nstrata,nyears] real<lower=0> nsmooth;
     real seas_max1 = max(season_pred1)/2;
  real seas_max2 = max(season_pred2)/2;
  vector[2] seas_max;
@@ -168,8 +168,8 @@ generated quantities {
 
         
   for(y in 1:nyears){
-            real atmp[nsites_strat[s]];
-            real atmp_smo[nsites_strat[s]];
+           array[nsites_strat[s]] real atmp;
+           array[nsites_strat[s]] real atmp_smo;
             
         //a stratum-scaling component that tracks the alphas for sites in stratum
         for(j in 1:nsites_strat[s]){

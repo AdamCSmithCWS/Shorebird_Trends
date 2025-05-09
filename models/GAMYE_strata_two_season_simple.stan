@@ -2,13 +2,12 @@
 // as well as a gam-based Seasonal adjustment and sruvey-wide random year-effects
 // same as GAMYE_strata_two_season but without the site-size predictor
 
-
-functions {
-  real icar_normal_lpdf(vector bb, int nsites, int[] node1, int[] node2) {
-    return -0.5 * dot_self(bb[node1] - bb[node2])
-      + normal_lpdf(sum(bb) | 0, 0.001 * nsites); //soft sum to zero constraint on phi
+ functions {
+   real icar_normal_lpdf(vector bb, int ns, array[] int n1, array[] int n2) {
+     return -0.5 * dot_self(bb[n1] - bb[n2])
+       + normal_lpdf(sum(bb) | 0, 0.001 * ns); //soft sum to zero constraint on bb
+  }
  }
-}
 
 
 data {
