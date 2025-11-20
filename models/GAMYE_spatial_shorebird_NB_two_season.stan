@@ -119,7 +119,7 @@ model {
   sdyear ~ normal(0,0.2); //prior on scale of annual fluctuations - 
   // above is informative so that 95% of the prior includes yearly fluctuations fall
   // between 33% decrease and a 50% increase
-  sdalpha ~ student_t(3,0,3); //prior on scale of site level variation
+  sdalpha ~ student_t(3,0,1); //prior on scale of site level variation
   sdyear_gam ~ student_t(10,0,1); //prior on sd of gam hyperparameters
   sdyear_gam_strat ~ gamma(2,4);//boundary avoiding mildly informative prior 
  //nu ~ gamma(2,0.1); // prior on df for t-distribution of heavy tailed site-effects from https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
@@ -147,6 +147,8 @@ generated quantities {
 
   array[nyears] real<lower=0> N;
   array[nyears] real<lower=0> NSmooth;
+  array[nyears] real<lower=0> N_alt;
+  array[nyears] real<lower=0> NSmooth_alt;
   array[nstrata,nyears] real<lower=0> n;
   array[nstrata,nyears] real<lower=0> nsmooth;
     real seas_max1 = max(season_pred1)/2;
@@ -183,8 +185,11 @@ generated quantities {
   
     for(y in 1:nyears){
 
-      N[y] = exp(ALPHA1 + Y_pred[y] + year_effect[y] + seas_max[1]  );
-      NSmooth[y] = exp(ALPHA1 + Y_pred[y] + seas_max[1] + 0.5*(sdyear^2) );
+      N[y] = exp(ALPHA1 + Y_pred[y] + year_effect[y] + seas_max[1] );
+      NSmooth[y] = exp(ALPHA1 + Y_pred[y] + seas_max[1] + 0.5*(sdyear^2));
+      
+      N_alt[y] = exp(ALPHA1 + Y_pred[y] + year_effect[y] + seas_max[1] + 0.5*(sdalpha^2));
+      NSmooth_alt[y] = exp(ALPHA1 + Y_pred[y] + seas_max[1] + 0.5*(sdyear^2)+ 0.5*(sdalpha^2));
       
     }
     
