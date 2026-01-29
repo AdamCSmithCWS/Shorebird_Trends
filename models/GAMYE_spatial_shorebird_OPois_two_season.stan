@@ -1,19 +1,6 @@
 // This is a full hierarchical GAM time-series, with spatial gam parameters 
 // as well as a gam-based Seasonal adjustment and sruvey-wide random year-effects
 
-// iCAR function, from Morris et al. 2019
-// Morris, M., K. Wheeler-Martin, D. Simpson, S. J. Mooney, A. Gelman, and C. DiMaggio (2019). 
-// Bayesian hierarchical spatial models: Implementing the Besag York Mollié model in stan. 
-// Spatial and Spatio-temporal Epidemiology 31:100301.
-
-
- functions {
-   real icar_normal_lpdf(vector bb, int ns, array[] int n1, array[] int n2) {
-     return -0.5 * dot_self(bb[n1] - bb[n2])
-       + normal_lpdf(sum(bb) | 0, 0.001 * ns); //soft sum to zero constraint on bb
-  }
- }
-
 
 data {
   int<lower=0> nstrata;
@@ -53,17 +40,17 @@ data {
 }
 
 parameters {
-  vector[nsites] alpha_raw;             // intercepts
-  vector[nyears] year_effect_raw;             // continental year-effects
-  matrix[nstrata,nknots_year] b_raw;         // spatial effect slopes (0-centered deviation from continental mean slope B)
+  sum_to_zero_vector[nsites] alpha_raw;             // intercepts
+  sum_to_zero_vector[nyears] year_effect_raw;             // continental year-effects
+  array[nknots_year] sum_to_zero_vector[nstrata] b_raw;         // spatial effect slopes (0-centered deviation from continental mean slope B)
   vector[nknots_year] B_raw;             // GAM coefficients year
   
   vector[nknots_season] B_season_raw1;         // GAM coefficients
   vector[nknots_season] B_season_raw2;         // GAM coefficients
 
- real<lower=0> sdnoise;    // sd of over-dispersion
-  vector[ncounts] noise_raw; // count-level variance
- real<lower=0> sdalpha;    // sd of site effects
+  real<lower=0> sdnoise;    // sd of over-dispersion
+  sum_to_zero_vector[ncounts] noise_raw; // count-level variance
+  real<lower=0> sdalpha;    // sd of site effects
   real<lower=0> sdyear;    // sd of year effects
   array[2] real<lower=0> sdseason;    // sd of season effects
   real<lower=0> sdyear_gam;    // sd of GAM coefficients
@@ -76,12 +63,12 @@ transformed parameters {
   vector[ndays] season_pred1 = season_basispred*(sdseason[1]*B_season_raw1);
   vector[ndays] season_pred2 = season_basispred*(sdseason[2]*B_season_raw2);
   matrix[ndays,2] season_pred;
-    matrix[nyears,nstrata] year_pred;
+  matrix[nyears,nstrata] year_pred;
   vector[nyears] Y_pred; 
   vector[nsites] alpha;
   vector[nknots_year] B;
-   matrix[nstrata,nknots_year] b;
-   vector[nyears] year_effect;             // continental year-effects
+  matrix[nstrata,nknots_year] b;
+  vector[nyears] year_effect;             // continental year-effects
 
  
   alpha = sdalpha*alpha_raw + ALPHA1;// + beta_size*site_size;
@@ -89,12 +76,13 @@ transformed parameters {
   year_effect = sdyear*year_effect_raw;
   
 
-    season_pred[,1] = season_pred1;
- season_pred[,2] = season_pred2;
+   season_pred[,1] = season_pred1;
+   season_pred[,2] = season_pred2;
  
  
     for(k in 1:nknots_year){
-    b[,k] = (sdyear_gam_strat * b_raw[,k]) + B[k];
+      
+    b[,k] = (sdyear_gam_strat * b_raw[k,]) + B[k];
   }
   
   
@@ -131,12 +119,10 @@ model {
   alpha_raw ~ student_t(3,0,1); // random site-effects
   B_raw ~ std_normal();// prior on GAM hyperparameters
   year_effect_raw ~ std_normal(); //prior on ▲annual fluctuations
-  sum(year_effect_raw) ~ normal(0,0.001*nyears);//sum to zero constraint on year-effects
-  sum(alpha_raw) ~ normal(0,0.001*nsites);//sum to zero constraint on site-effects
 
   
-    for(k in 1:nknots_year){
-  b_raw[,k] ~ icar_normal(nstrata, node1, node2);
+  for(k in 1:nknots_year){
+  target += -0.5 * dot_self(b_raw[k,node1] - b_raw[k,node2]); // ICAR prior
   }
   
 

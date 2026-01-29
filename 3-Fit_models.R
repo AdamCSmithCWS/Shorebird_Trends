@@ -26,7 +26,7 @@ dir.create("output")
 #                    .errorhandling = "pass") %dopar%
 #   {
 #     
-   previous_inits <- FALSE 
+previous_inits <- FALSE 
 
 
 qqq <- 0
@@ -66,9 +66,10 @@ load(paste0("data/species_stan_data/",sp,"_2024_stan_data.RData"))
 
 print(paste("beginning",sp,Sys.time()))
 
-
+mod.file2 <- "models/GAMYE_spatial_shorebird_NB_two_season - COPY.stan"
 ## compile model
 model <- cmdstan_model(mod.file, stanc_options = list("O1"))
+modelold <- cmdstan_model(mod.file2, stanc_options = list("O1"))
 use_manual_inits<- FALSE
 if(use_manual_inits){
 if(two_seasons){
@@ -130,8 +131,34 @@ stanfit <- model$sample(
 
 summ <- stanfit$summary()
 
-save(list = c("stanfit",
-              "stan_data",
+
+
+stanfitold <- modelold$sample(
+  data=stan_data,
+  refresh=200,
+  chains=4, 
+  iter_sampling=2000,
+  iter_warmup=1000,
+  thin = 2,
+  parallel_chains = 4,
+  #pars = parms,
+  adapt_delta = 0.95,
+  max_treedepth = 11,
+  seed = 123,
+  init = init_def,
+  output_dir = output_dir,
+  output_basename = out_base,
+  show_exceptions = FALSE)
+
+summold <- stanfitold$summary()
+
+stanfit$save_object(paste0(output_dir,out_base,"_2024_fit.rds"))
+
+csvs <- paste0(paste0(output_dir,out_base,"-",c(1:4),".csv"))
+
+unlink(csvs)
+
+save(list = c("stan_data",
               "dts",
               "real_grid",
               "strats_dts",

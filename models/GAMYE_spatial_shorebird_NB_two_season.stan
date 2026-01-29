@@ -1,20 +1,6 @@
 // This is a full hierarchical GAM time-series, with spatial gam parameters 
 // as well as a gam-based Seasonal adjustment and sruvey-wide random year-effects
 
-// iCAR function, from Morris et al. 2019
-// Morris, M., K. Wheeler-Martin, D. Simpson, S. J. Mooney, A. Gelman, and C. DiMaggio (2019). 
-// Bayesian hierarchical spatial models: Implementing the Besag York Mollié model in stan. 
-// Spatial and Spatio-temporal Epidemiology 31:100301.
-
-
- functions {
-   real icar_normal_lpdf(vector bb, int ns, array[] int n1, array[] int n2) {
-     return -0.5 * dot_self(bb[n1] - bb[n2])
-       + normal_lpdf(sum(bb) | 0, 0.001 * ns); //soft sum to zero constraint on bb
-  }
- }
-
-
 data {
   int<lower=0> nstrata;
   int<lower=0> ncounts;
@@ -53,9 +39,9 @@ data {
 }
 
 parameters {
-  vector[nsites] alpha_raw;             // intercepts
-  vector[nyears] year_effect_raw;             // continental year-effects
-  matrix[nstrata,nknots_year] b_raw;         // spatial effect slopes (0-centered deviation from continental mean slope B)
+  sum_to_zero_vector[nsites] alpha_raw;             // intercepts
+  sum_to_zero_vector[nyears] year_effect_raw;             // continental year-effects
+  array[nknots_year] sum_to_zero_vector[nstrata] b_raw;         // spatial effect slopes (0-centered deviation from continental mean slope B)
   vector[nknots_year] B_raw;             // GAM coefficients year
   
   vector[nknots_season] B_season_raw1;         // GAM coefficients
@@ -96,7 +82,7 @@ transformed parameters {
  
  
     for(k in 1:nknots_year){
-    b[,k] = (sdyear_gam_strat * b_raw[,k]) + B[k];
+    b[,k] = (sdyear_gam_strat * b_raw[k,]) + B[k];
   }
   
   
@@ -132,12 +118,10 @@ model {
   alpha_raw ~ student_t(3,0,1); // random site-effects
   B_raw ~ std_normal();// prior on GAM hyperparameters
   year_effect_raw ~ std_normal(); //prior on ▲annual fluctuations
-  sum(year_effect_raw) ~ normal(0,0.001*nyears);//sum to zero constraint on year-effects
-  sum(alpha_raw) ~ normal(0,0.001*nsites);//sum to zero constraint on site-effects
 
   
     for(k in 1:nknots_year){
-  b_raw[,k] ~ icar_normal(nstrata, node1, node2);
+  target += -0.5 * dot_self(b_raw[k,node1] - b_raw[k,node2]); // ICAR prior
   }
   
 

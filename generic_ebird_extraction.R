@@ -27,7 +27,7 @@ proj_name <- "breeding" # provides a text string to name this particular subse o
 
 # Filtering to ISS-protocol and fall surveys ------------------------------
 
-re_filter_ebird_full_data <- TRUE
+re_filter_ebird_full_data <- FALSE
 
 if(re_filter_ebird_full_data){
   # 
@@ -73,4 +73,8 @@ if(re_filter_ebird_full_data){
   
   save(list = c("ebdat","ebdat_samp"),
        file = paste0("data/all_",proj_name,"_eBird.RData"))
+}else{
+  
+  load(paste0("data/all_",proj_name,"_eBird.RData"))
+  
 }
